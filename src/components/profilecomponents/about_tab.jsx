@@ -138,7 +138,6 @@ const ProfileAbout = ({user_id}) => {
           Authorization: `Bearer ${token}`,
         },
       });
-      console.log("Skills API Response:", res.data);
       let data = res.data;
       if (Array.isArray(data)) {
         setSkillList(data);

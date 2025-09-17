@@ -242,10 +242,8 @@ const Profile = () => {
     });
 
     apiData.poll_posts.forEach((post) => {
-      // Parse poll options from the API response
       const pollOptions = post.poll?.options || [];
 
-      // Since options is just an array of strings, convert to proper format
       const formattedOptions = pollOptions.map((option, index) => ({
         id: index + 1,
         text: option, // Direct string value

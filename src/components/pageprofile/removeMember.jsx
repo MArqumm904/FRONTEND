@@ -1,6 +1,6 @@
 import React from "react";
 
-export default function RemoveMember({ onCancel, onBlock, name = "Leadership academy" }) {
+export default function RemoveMember({ onCancel, onConfirm, name = "Leadership academy" }) {
   return (
     <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50 px-4">
       <div className="bg-white w-full max-w-lg h-auto rounded-xl shadow-lg text-center overflow-hidden pt-6">
@@ -18,7 +18,7 @@ export default function RemoveMember({ onCancel, onBlock, name = "Leadership aca
 
         {/* Block Button */}
         <button
-          onClick={onBlock}
+          onClick={onConfirm}
           className="w-full text-red-600 font-semibold py-4 border-t border-gray-200 hover:bg-red-50"
         >
           Remove Member
