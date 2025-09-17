@@ -14,6 +14,7 @@ import SidebarMenu from "../components/sidebarmenu";
 import ProfileCard from "../components/profilecard";
 import NavbarReplica from "../components/nav";
 import ShareIcon from "../assets/images/share.png";
+import ReelComments from ".././components/ReelsComponents/reels_comments";
 import axios from "axios";
 
 const SCROLL_THRESHOLD = 0.75;
@@ -71,6 +72,9 @@ const Reels = () => {
   const [loading, setLoading] = useState(false);
   const [hasMoreReels, setHasMoreReels] = useState(true);
   const [showSharePopup, setShowSharePopup] = useState({});
+  const [showComments, setShowComments] = useState(false);
+  const [activeReelId, setActiveReelId] = useState(null);
+  const [activeReelData, setActiveReelData] = useState(null);
 
   // Custom hook usage
   useVideoControl(videoRefs, activeIndex);
@@ -253,11 +257,12 @@ const Reels = () => {
 
   // Reset container scroll to top when reels load
   useEffect(() => {
-    if (containerRef.current && reels.length > 0) {
+    // Only scroll to top when first reels are loaded, not when new ones are added
+    if (containerRef.current && reels.length > 0 && !initialized) {
       containerRef.current.scrollTop = 0;
       setActiveIndex(0);
     }
-  }, [reels.length]);
+  }, [reels.length, initialized]);
 
   // Intersection observer for active index with throttling
   useEffect(() => {
@@ -275,7 +280,11 @@ const Reels = () => {
           }
         });
       },
-      { root: container, threshold: [0, 0.25, 0.5, SCROLL_THRESHOLD, 1] }
+      {
+        root: container,
+        threshold: [0, 0.25, 0.5, SCROLL_THRESHOLD, 1],
+        rootMargin: "0px 0px -10% 0px", // This helps with better detection
+      }
     );
 
     const items = container.querySelectorAll("[data-index]");
@@ -400,7 +409,13 @@ const Reels = () => {
   useEffect(() => {
     if (!initialized) {
       setInitialized(true);
-      fetchMoreReels();
+      fetchMoreReels().then(() => {
+        // Only scroll to top after initial fetch
+        if (containerRef.current) {
+          containerRef.current.scrollTop = 0;
+          setActiveIndex(0);
+        }
+      });
     }
   }, [initialized, fetchMoreReels]);
 
@@ -683,7 +698,20 @@ const Reels = () => {
 
           {/* Comment */}
           <div className="flex flex-col items-center">
-            <button className="p-2 hover:bg-black/20 rounded-full transition-colors">
+            <button
+              className="p-2 hover:bg-black/20 rounded-full transition-colors"
+              onClick={() => {
+                setActiveReelId(item.id); // reel id set
+                setActiveReelData({
+                  id: item.id,
+                  ownerName: item.user,
+                  ownerProfilePhoto:
+                    item.userProfilePhoto ||
+                    "https://cdn.pixabay.com/photo/2023/02/18/11/00/icon-7797704_640.png",
+                });
+                setShowComments(true);
+              }}
+            >
               <MessageCircle className="w-7 h-7 text-black" />
             </button>
             <span className="text-black text-xs mt-1 font-medium">
@@ -804,6 +832,18 @@ const Reels = () => {
           </div>
         </div>
       </div>
+
+      {showComments && activeReelId && (
+        <ReelComments
+          reelId={activeReelId}
+          ownerName={activeReelData.ownerName}
+          ownerProfilePhoto={activeReelData.ownerProfilePhoto}
+          onClose={() => {
+            setShowComments(false);
+            setActiveReelData(null); // Clear active reel data when closing
+          }}
+        />
+      )}
 
       {/* Hide Scrollbar */}
       <style jsx>{`

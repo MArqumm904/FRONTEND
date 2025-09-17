@@ -200,10 +200,10 @@ const EditCover = ({ onClose, currentCoverPhoto, onCoverUpdate }) => {
             <div className="border-2 border-[#707070] rounded-lg p-20 text-center bg-gray-50 ">
               <button
                 onClick={handleUploadClick}
-                className="flex ms-14 gap-5 textce text-gray-600 hover:text-gray-800 transition-colors"
+                className="flex ms-32 gap-5 text-center text-gray-600 hover:text-gray-800 transition-colors"
               >
                 <Camera size={25} />
-                Upload Photo1
+                Upload Photo
               </button>
             </div>
             <div className="flex gap-2 justify-center">
