@@ -123,25 +123,30 @@ export default function ChatArea({
     const secs = seconds % 60;
     return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
-
   const toggleVoicePlay = (msg) => {
     const audio = voiceAudioRefs.current[msg.id];
-    if (!audio) return;
+    if (!audio || !audio.src) return; 
 
     if (currentlyPlayingVoice === msg.id) {
       audio.pause();
       setCurrentlyPlayingVoice(null);
     } else {
-      // Pause any currently playing audio
       if (currentlyPlayingVoice) {
         const currentAudio = voiceAudioRefs.current[currentlyPlayingVoice];
         if (currentAudio) currentAudio.pause();
       }
 
-      audio
-        .play()
-        .then(() => setCurrentlyPlayingVoice(msg.id))
-        .catch((err) => console.error("Playback failed:", err));
+      if (audio.src && audio.src !== window.location.href) {
+        audio
+          .play()
+          .then(() => setCurrentlyPlayingVoice(msg.id))
+          .catch((err) => {
+            console.error("Playback failed:", err);
+            toast.error("Unable to play this voice message");
+          });
+      } else {
+        toast.error("Voice message source is unavailable");
+      }
     }
   };
 
@@ -237,7 +242,7 @@ export default function ChatArea({
 
   const stopVoiceRecording = () => {
     if (mediaRecorderRef.current?.state === "inactive") {
-      return Promise.resolve(voiceBlob); 
+      return Promise.resolve(voiceBlob);
     }
 
     return new Promise((resolve) => {
@@ -790,6 +795,17 @@ export default function ChatArea({
         return; // Skip this message
       }
 
+      const normalizeUrl = (url) => {
+        if (!url) return null;
+        if (url.includes("firebasestorage.googleapis.com")) {
+          return url; // Already a valid Firebase URL
+        }
+        return url.replace(
+          "http://127.0.0.1:8000/storage/",
+          "http://127.0.0.1:8000/storage/"
+        );
+      };
+
       const normalized = {
         id: snapshot.key,
         type: payload?.type || "text",
@@ -799,8 +815,10 @@ export default function ChatArea({
           ? new Date(Number(payload.timestamp) * 1000)
           : new Date(),
         // Image specific fields
-        image_url: payload?.image_url || null,
+       image_url: payload?.image_url || null,
+        // image_url: payload?.image_url || null,
         media_url: payload?.media_url || null,
+
         // Voice specific fields (keep existing)
         audioUrl: payload?.audioUrl || null,
         duration: payload?.duration || null,
@@ -809,6 +827,7 @@ export default function ChatArea({
         // Post payload
         post: payload?.post || null,
       };
+
       // console.log(normalized);
       setMessages((prev) => [...prev, normalized]);
 
@@ -872,7 +891,6 @@ export default function ChatArea({
 
   const handleClearChat = async () => {
     try {
-      
       setIsClearingChat(true);
 
       const response = await fetch(
@@ -1155,7 +1173,7 @@ export default function ChatArea({
                     )}
                   </div>
                 ) : msg.type === "voice" ? (
-                     <div
+                  <div
                     className={`max-w-[80%] ${
                       msg.isOwn ? "ml-auto" : "mr-auto"
                     }`}
@@ -1208,6 +1226,9 @@ export default function ChatArea({
                         ref={(el) => (voiceAudioRefs.current[msg.id] = el)}
                         src={msg.media_url}
                         onEnded={() => handleVoiceEnd(msg.id)}
+                        onError={(e) => {
+                          console.error("Audio loading error:", e);
+                        }}
                         hidden
                       />
                     </div>

@@ -4,19 +4,20 @@ const PhotoStoryView = ({ story, onAddToStory, onAddText }) => {
   return (
     <div className="w-full h-full relative bg-[#9B9B9B] flex items-center justify-center">
       <div 
-        className="absolute inset-0 bg-cover bg-center blur-sm opacity-30"
-        style={{
-          backgroundImage: `url(${story?.url || "https://images.unsplash.com/photo-1698778573682-346d219322b2?w=1080&auto=format"})`
-        }}
+        className="absolute inset-0 bg-cover bg-center blur-sm opacity-30 "
+     
+        style={{ backgroundColor: '#9B9B9B' }}
+       
       />
-      <img
-        src={
-          story?.url ||
-          "https://images.unsplash.com/photo-1682686580391-615b5f41556b?w=1080&auto=format"
-        }
-        alt="Story"
-        className="h-full w-full object-contain rounded-lg"
-      />
+    <img
+  src={
+    story?.url ||
+    "https://images.unsplash.com/photo-1682686580391-615b5f41556b?w=1080&auto=format"
+  }
+  alt="Story"
+  className="h-full w-[90%] mx-auto object-contain"
+/>
+
 
       {/* Overlay text elements with positioning */}
       {story?.textElements && story.textElements.length > 0 && (

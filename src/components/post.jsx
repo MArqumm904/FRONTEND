@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import PostImage from "../assets/images/postimage.png";
 import PostStory from "./homecomponents/poststory";
 import HomePostTab from "./homecomponents/homeposts";
+import Person1 from "../assets/images/person-1.png";
 
 const Post = ({onStoryUpload}) => {
   const [showCommentPopup, setShowCommentPopup] = useState(false);
@@ -139,7 +140,7 @@ const convertApiPostsToDisplayFormat = (apiData) => {
     if (!profilePhoto) return Person1; // Fallback to default image
     return profilePhoto.startsWith("http")
       ? profilePhoto
-      : `${baseUrl}/storage/${profilePhoto}`;
+      : `${baseUrl}/storage/${profilePhoto}`; 
   };
 
   apiData.text_posts.forEach((post) => {
