@@ -24,7 +24,7 @@ const ImagePreviewModal = ({ open, onClose, image, label }) => {
   );
 };
 
-const ViewMembershipModal = ({ onClose, invitation }) => {
+const DocumentViewModal = ({ onClose, membership }) => {
   const [previewModal, setPreviewModal] = useState({
     open: false,
     image: null,
@@ -32,15 +32,15 @@ const ViewMembershipModal = ({ onClose, invitation }) => {
   });
   
   // Get base URL from environment variable
-  const baseUrl =  "http://127.0.0.1:8000/storage";
+  const baseUrl = "http://127.0.0.1:8000/storage";
   
   // Get document URLs with proper base URL
-  const confirmationLetterUrl = invitation.documents && invitation.documents[0]?.confirmation_letter 
-    ? `${baseUrl}/${invitation.documents[0].confirmation_letter}`
+  const confirmationLetterUrl = membership.documents && membership.documents.length > 0 && membership.documents[0].confirmation_letter
+    ? `${baseUrl}/${membership.documents[0].confirmation_letter}`
     : null;
     
-  const proofDocumentUrl = invitation.documents && invitation.documents[0]?.proof_document 
-    ? `${baseUrl}/${invitation.documents[0].proof_document}`
+  const proofDocumentUrl = membership.documents && membership.documents.length > 0 && membership.documents[0].proof_document
+    ? `${baseUrl}/${membership.documents[0].proof_document}`
     : null;
 
   const openPreview = (image, label) => {
@@ -50,6 +50,14 @@ const ViewMembershipModal = ({ onClose, invitation }) => {
   
   const closePreview = () => {
     setPreviewModal({ open: false, image: null, label: "" });
+  };
+
+  // Get company name properly
+  const getCompanyName = () => {
+    if (membership.page && membership.page.page_name) {
+      return membership.page.page_name;
+    }
+    return membership.company_name || "Unknown Company";
   };
 
   return (
@@ -64,7 +72,7 @@ const ViewMembershipModal = ({ onClose, invitation }) => {
       >
         {/* Close Button */}
         <button
-          className="absolute top-[18px]  hover right-[18px] text-black hover:text-gray-800 text-3xl"
+          className="absolute top-[18px] hover right-[18px] text-black hover:text-gray-800 text-3xl"
           onClick={onClose}
           style={{ lineHeight: "1" }}
         >
@@ -75,7 +83,7 @@ const ViewMembershipModal = ({ onClose, invitation }) => {
           className="text-lg font-sf font-semibold px-6 pt-6 pb-4 text-left border-b border-gray-200"
           style={{ marginBottom: 0 }}
         >
-          View Confirmation Letter
+          View Documents
         </h2>
         {/* Form Fields */}
         <div className="px-6 pb-6 pt-0">
@@ -89,7 +97,7 @@ const ViewMembershipModal = ({ onClose, invitation }) => {
             <input
               id="name"
               type="text"
-              value={invitation.page.page_name || ""}
+              value={getCompanyName()}
               readOnly
               className="w-full border border-gray-300 rounded-[6px] px-3 py-[13px] text-[15px] bg-gray-100"
               style={{ marginBottom: 0, height: "44px" }}
@@ -105,7 +113,7 @@ const ViewMembershipModal = ({ onClose, invitation }) => {
             <input
               id="jobTitle"
               type="text"
-              value={invitation.job_title || ""}
+              value={membership.job_title || ""}
               readOnly
               className="w-full border border-gray-300 rounded-[6px] px-3 py-[13px] text-[15px] bg-gray-100"
               style={{ marginBottom: 0, height: "44px" }}
@@ -121,7 +129,7 @@ const ViewMembershipModal = ({ onClose, invitation }) => {
             <input
               id="location"
               type="text"
-              value={invitation.location || ""}
+              value={membership.location || ""}
               readOnly
               className="w-full border border-gray-300 rounded-[6px] px-3 py-[13px] text-[15px] bg-gray-100"
               style={{ marginBottom: 0, height: "44px" }}
@@ -139,13 +147,13 @@ const ViewMembershipModal = ({ onClose, invitation }) => {
               <input
                 id="startDate"
                 type="text"
-                value={invitation.start_date ? new Date(invitation.start_date).toLocaleDateString() : ""}
+                value={membership.start_date ? new Date(membership.start_date).toLocaleDateString() : ""}
                 readOnly
                 className="w-full border border-gray-300 rounded-[6px] px-3 py-[13px] text-[15px] bg-gray-100"
                 style={{ marginBottom: 0, height: "44px" }}
               />
             </div>
-            {!invitation.currently_working && (
+            {!membership.currently_working && (
               <div className="flex-1 mt-4 sm:mt-0">
                 <label
                   className="block text-sm font-medium text-gray-700 mb-1"
@@ -156,7 +164,7 @@ const ViewMembershipModal = ({ onClose, invitation }) => {
                 <input
                   id="endDate"
                   type="text"
-                  value={invitation.end_date ? new Date(invitation.end_date).toLocaleDateString() : ""}
+                  value={membership.end_date ? new Date(membership.end_date).toLocaleDateString() : ""}
                   readOnly
                   className="w-full border border-gray-300 rounded-[6px] px-3 py-[13px] text-[15px] bg-gray-100"
                   style={{ marginBottom: 0, height: "44px" }}
@@ -171,7 +179,7 @@ const ViewMembershipModal = ({ onClose, invitation }) => {
               id="currentlyWorking"
               className="w-7 h-7 font-sf bg-gray-100 border-gray-300 rounded mr-2"
               style={{ accentColor: "#8bc53d" }}
-              checked={invitation.currently_working || false}
+              checked={membership.currently_working || false}
               readOnly
             />
             <label
@@ -188,63 +196,73 @@ const ViewMembershipModal = ({ onClose, invitation }) => {
             >
               Responsibilities
             </label>
-            <input
+            <textarea
               id="responsibilities"
-              type="text"
-              value={invitation.responsibilities || ""}
+              value={membership.responsibilities || ""}
               readOnly
               className="w-full border border-gray-300 rounded-[6px] px-3 py-[13px] text-[15px] bg-gray-100"
-              style={{ marginBottom: 0, height: "44px" }}
+              rows="3"
             />
           </div>
-          {/* Attach Confirmation Letter */}
-          {confirmationLetterUrl && (
-            <div className="mb-6">
-              <label className="block text-sm font-medium mb-1">
-                Confirmation Letter
-              </label>
-              <div className="w-full h-[120px] bg-gray-200 rounded overflow-hidden flex items-center relative">
-                <img
-                  src={confirmationLetterUrl}
-                  alt="Confirmation Letter"
-                  className="object-cover w-full h-full"
-                  style={{ filter: "grayscale(100%) brightness(0.95)" }}
-                />
-                <div className="absolute inset-0 bg-black bg-opacity-40 flex items-center justify-center" />
-                <button
-                  type="button"
-                  className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-opacity-80 text-white text-base px-4 py-1 rounded shadow font-medium"
-                  onClick={() => openPreview(confirmationLetterUrl, "Confirmation Letter")}
-                >
-                  View Letter
-                </button>
-              </div>
+          
+          {/* Document Section */}
+          {(!confirmationLetterUrl && !proofDocumentUrl) ? (
+            <div className="mb-6 p-4 bg-gray-50 rounded-lg text-center">
+              <p className="text-gray-500 font-sf">No documents available for this membership.</p>
             </div>
+          ) : (
+            <>
+              {/* Attach Confirmation Letter */}
+              {confirmationLetterUrl && (
+                <div className="mb-6">
+                  <label className="block text-sm font-medium mb-1">
+                    Confirmation Letter
+                  </label>
+                  <div className="w-full h-[120px] bg-gray-200 rounded overflow-hidden flex items-center relative">
+                    <img
+                      src={confirmationLetterUrl}
+                      alt="Confirmation Letter"
+                      className="object-cover w-full h-full"
+                      style={{ filter: "grayscale(100%) brightness(0.95)" }}
+                    />
+                    <div className="absolute inset-0 bg-black bg-opacity-40 flex items-center justify-center" />
+                    <button
+                      type="button"
+                      className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-opacity-80 text-white text-base px-4 py-1 rounded shadow font-medium"
+                      onClick={() => openPreview(confirmationLetterUrl, "Confirmation Letter")}
+                    >
+                      View Letter
+                    </button>
+                  </div>
+                </div>
+              )}
+              {/* Attach Proof Document */}
+              {proofDocumentUrl && (
+                <div className="mb-6">
+                  <label className="block text-sm font-medium mb-1">
+                    Proof Document
+                  </label>
+                  <div className="w-full h-[120px] bg-gray-200 rounded overflow-hidden flex items-center relative">
+                    <img
+                      src={proofDocumentUrl}
+                      alt="Proof Document"
+                      className="object-cover w-full h-full"
+                      style={{ filter: "grayscale(100%) brightness(0.95)" }}
+                    />
+                    <div className="absolute inset-0 bg-black bg-opacity-40 flex items-center justify-center" />
+                    <button
+                      type="button"
+                      className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-opacity-80 text-white text-base px-4 py-1 rounded shadow font-medium"
+                      onClick={() => openPreview(proofDocumentUrl, "Proof Document")}
+                    >
+                      View Document
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
           )}
-          {/* Attach Proof Document */}
-          {proofDocumentUrl && (
-            <div className="mb-6">
-              <label className="block text-sm font-medium mb-1">
-                Proof Document
-              </label>
-              <div className="w-full h-[120px] bg-gray-200 rounded overflow-hidden flex items-center relative">
-                <img
-                  src={proofDocumentUrl}
-                  alt="Proof Document"
-                  className="object-cover w-full h-full"
-                  style={{ filter: "grayscale(100%) brightness(0.95)" }}
-                />
-                <div className="absolute inset-0 bg-black bg-opacity-40 flex items-center justify-center" />
-                <button
-                  type="button"
-                  className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-opacity-80 text-white text-base px-4 py-1 rounded shadow font-medium"
-                  onClick={() => openPreview(proofDocumentUrl, "Proof Document")}
-                >
-                  View Document
-                </button>
-              </div>
-            </div>
-          )}
+          
           {/* Action Buttons */}
           <div className="flex space-x-2 mt-4">
             <button
@@ -269,4 +287,4 @@ const ViewMembershipModal = ({ onClose, invitation }) => {
   );
 };
 
-export default ViewMembershipModal;
+export default DocumentViewModal;

@@ -2,11 +2,17 @@ import React, { useState, useEffect } from "react";
 import { MapPin, Settings, Loader2 } from "lucide-react";
 import ViewMembershipModal from "./view_membership_modal";
 import ApproveRequest from "./Approve_request";
+import { toast, ToastContainer } from "react-toastify";
 
 // Default fallback image if company logo is not available
 const DEFAULT_COMPANY_LOGO = "/default-company-logo.png";
 
-const MemberCard = ({ request, onViewLetter }) => {
+const MemberCard = ({
+  request,
+  onViewLetter,
+  onRejectRequest,
+  isRejecting,
+}) => {
   const formatDate = (dateString) => {
     if (!dateString) return "";
     const date = new Date(dateString);
@@ -50,11 +56,6 @@ const MemberCard = ({ request, onViewLetter }) => {
     // Construct the full URL with storage path
     const baseUrl = import.meta.env.VITE_API_BASE_URL.replace("/api", "");
     const fullUrl = `${baseUrl}/storage/${profilePhoto}`;
-
-    // Debug log to see what URL is being generated
-    console.log("Profile Photo Path:", profilePhoto);
-    console.log("Base URL:", baseUrl);
-    console.log("Full Image URL:", fullUrl);
 
     return fullUrl;
   };
@@ -125,16 +126,24 @@ const MemberCard = ({ request, onViewLetter }) => {
             <span className="mr-2 text-lg">✓</span>
             Approve
           </button>
-          <button className="flex items-center justify-center px-7 py-1 bg-[#ff2222] hover:bg-[#d11a1a] text-white text-sm rounded-md font-sf min-w-[110px] border border-[#ff2222] transition-colors duration-150">
-            <span className="mr-2 text-lg">✗</span>
-            Reject
+          <button
+            onClick={() => onRejectRequest(request)}
+            disabled={isRejecting}
+            className="flex items-center justify-center px-7 py-1 bg-[#ff2222] hover:bg-[#d11a1a] text-white text-sm rounded-md font-sf min-w-[110px] border border-[#ff2222] transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isRejecting ? (
+              <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+            ) : (
+              <span className="mr-2 text-lg">✗</span>
+            )}
+            {isRejecting ? "Rejecting..." : "Reject"}
           </button>
         </div>
       )}
     </div>
   );
 };
-                                                                                              
+
 const MemberRequest = ({ onRequestsUpdate }) => {
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -142,6 +151,7 @@ const MemberRequest = ({ onRequestsUpdate }) => {
   const [showViewModal, setShowViewModal] = useState(false);
   const [showApproveReqPopup, setShowApproveReqPopup] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState(null);
+  const [rejectingId, setRejectingId] = useState(null);
 
   // Fetch membership requests from API
   const fetchMembershipRequests = async () => {
@@ -149,7 +159,7 @@ const MemberRequest = ({ onRequestsUpdate }) => {
       setLoading(true);
       setError(null);
 
-      const token = localStorage.getItem("token"); // Adjust according to your auth implementation
+      const token = localStorage.getItem("token");
 
       const response = await fetch(
         `${import.meta.env.VITE_API_BASE_URL}/getUserMemberships`,
@@ -157,7 +167,7 @@ const MemberRequest = ({ onRequestsUpdate }) => {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`, // Adjust according to your auth implementation
+            Authorization: `Bearer ${token}`,
             Accept: "application/json",
           },
         }
@@ -182,6 +192,63 @@ const MemberRequest = ({ onRequestsUpdate }) => {
       setError(err.message || "Something went wrong while fetching requests");
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Cancel membership request
+  const cancelMembership = async (request) => {
+    try {
+      setRejectingId(request.id);
+
+      const token = localStorage.getItem("token");
+      const response = await fetch(
+        `${import.meta.env.VITE_API_BASE_URL}/cancelmembership`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+            Accept: "application/json",
+          },
+          body: JSON.stringify({
+            user_id: request.user_id,
+            page_id: request.page_id,
+          }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Failed to reject membership");
+      }
+
+      if (data.success) {
+        // Update the request status locally
+        setRequests((prevRequests) =>
+          prevRequests.map((req) =>
+            req.id === request.id ? { ...req, status: "rejected" } : req
+          )
+        );
+
+        if (onRequestsUpdate) {
+          onRequestsUpdate(
+            requests.map((req) =>
+              req.id === request.id ? { ...req, status: "rejected" } : req
+            )
+          );
+        }
+
+        // alert("Membership request rejected successfully");
+        toast.success("Membership request rejected successfully");
+      } else {
+        throw new Error(data.message || "Failed to reject membership");
+      }
+    } catch (err) {
+      console.error("Error rejecting membership:", err);
+      toast.success(err.message || "Something went wrong while rejecting the request");
+    } finally {
+      setRejectingId(null);
     }
   };
 
@@ -260,12 +327,15 @@ const MemberRequest = ({ onRequestsUpdate }) => {
 
   return (
     <div className="mt-2 mx-10">
+      <ToastContainer />
       {/* Render membership cards */}
       {requests.map((request) => (
         <MemberCard
           key={request.id}
           request={request}
           onViewLetter={handleViewLetter}
+          onRejectRequest={cancelMembership}
+          isRejecting={rejectingId === request.id}
         />
       ))}
 

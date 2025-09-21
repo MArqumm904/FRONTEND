@@ -42,7 +42,7 @@ import { useParams } from "react-router-dom";
 import CreatePost from "../components/profilecomponents/CreatePost";
 import CreatePoll from "../components/profilecomponents/CreatePoll";
 
-const Profile = () => {
+const   Profile = () => {
   const [apiPosts, setApiPosts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [hasMore, setHasMore] = useState(true);

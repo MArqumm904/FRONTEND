@@ -66,11 +66,15 @@ const MyMembers = () => {
       const pageId = getPageIdFromUrl();
       const token = localStorage.getItem("token");
 
+      // Choose the correct endpoint based on membership type
+      const endpoint = '/removemember'; // You may need to create this endpoint
+
       await axios.post(
-        `${import.meta.env.VITE_API_BASE_URL}/removemember`,
+        `${import.meta.env.VITE_API_BASE_URL}${endpoint}`,
         {
           page_id: pageId,
           user_id: selectedMember.user_id,
+          membership_id: selectedMember.membership_id,
         },
         {
           headers: {
@@ -115,7 +119,7 @@ const MyMembers = () => {
         </svg>
       </div>
     );
-  }
+  };
 
   return (
     <>
@@ -124,7 +128,7 @@ const MyMembers = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 px-10">
           {members.map((member, idx) => (
             <div
-              key={idx}
+              key={`${member.membership_type}-${member.membership_id}`}
               className={`bg-white rounded-xl shadow border border-gray-200 overflow-hidden flex flex-col items-center transition-opacity ${
                 removingMemberId === member.user_id
                   ? "opacity-50"
@@ -135,8 +139,9 @@ const MyMembers = () => {
               <div className="w-full h-28 bg-gray-200 relative">
                 <img
                   src={
-                    "http://127.0.0.1:8000/storage/" + member.cover_photo ||
-                    "https://images.unsplash.com/photo-1558655146-9f40138edfeb?w=300&h=120&fit=crop"
+                    member.cover_photo
+                      ? "http://127.0.0.1:8000/storage/" + member.cover_photo
+                      : "https://images.unsplash.com/photo-1558655146-9f40138edfeb?w=300&h=120&fit=crop"
                   }
                   alt="Cover"
                   className="w-full h-full object-cover"
@@ -145,29 +150,43 @@ const MyMembers = () => {
                 <div className="absolute left-1/2 -bottom-14 transform -translate-x-1/2">
                   <img
                     src={
-                      "http://127.0.0.1:8000/storage/" + member.profile_photo ||
-                      "https://randomuser.me/api/portraits/men/32.jpg"
+                      member.profile_photo
+                        ? "http://127.0.0.1:8000/storage/" + member.profile_photo
+                        : member.type === 'page'
+                        ? "https://via.placeholder.com/96x96?text=Page"
+                        : "https://randomuser.me/api/portraits/men/32.jpg"
                     }
                     alt={member.name}
-                    className="w-24 h-24 rounded-full border-4 border-white object-cover "
+                    className="w-24 h-24 rounded-full border-4 border-white object-cover"
                   />
                 </div>
               </div>
               <div className="pt-16 pb-6 px-4 flex flex-col items-center w-full">
-                <div
-                  className={`${
-                    member.verified ? "flex items-center gap-x-2 mb-1" : " "
-                  }`}
-                >
+                <div className="flex items-center gap-x-2 mb-1">
                   <h3 className="font-bold text-lg text-gray-900 font-sf">
                     {member.name}
                   </h3>
-
-                  {member.verified && (
-                    <div className="p-2 rounded-full bg-[#BBF1FC]">
-                      <Gem className={`w-4 h-4 text-cyan-600`} />
-                    </div>
-                  )}
+                  
+                  {/* Show verified badge only for users, and add membership type indicator */}
+                  <div className="flex gap-1">
+                    {member.type === 'user' && member.verified && (
+                      <div className="p-2 rounded-full bg-[#BBF1FC]">
+                        <Gem className="w-4 h-4 text-cyan-600" />
+                      </div>
+                    )}
+                    
+                    {/* Membership type indicator */}
+                    {/* <div className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                      member.type === 'page' 
+                        ? 'bg-purple-100 text-purple-800' 
+                        : member.membership_type === 'page_membership'
+                        ? 'bg-blue-100 text-blue-800'
+                        : 'bg-green-100 text-green-800'
+                    }`}>
+                      {member.type === 'page' ? 'Page' : 
+                       member.membership_type === 'page_membership' ? 'Company' : 'User'}
+                    </div> */}
+                  </div>
                 </div>
                 <p className="text-sm text-gray-500 mb-4 text-center font-sf">
                   {member.headline || member.job_title}
