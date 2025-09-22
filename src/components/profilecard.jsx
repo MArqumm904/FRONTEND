@@ -6,14 +6,60 @@ import Preloader from "./preloader/Preloader";
 const ProfileCard = () => {
   const [userProfile, setUserProfile] = useState(null);
   const [postsCount, setPostsCount] = useState(0);
-  const [loading, setLoading] = useState(true); 
-  const [error, setError] = useState(null);     
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [followersCount, setFollowersCount] = useState(0);
+  const [followingsCount, setFollowingsCount] = useState(0);
   const navigate = useNavigate();
 
   const handleProfileClick = () => {
     const user_id = localStorage.getItem("user_id");
     if (!loading) navigate(`/profile/${user_id}`);
   };
+
+  const user_id = localStorage.getItem("user_id");
+
+  const fetchFollowersData = async () => {
+    setLoading(true);
+    try {
+      const token = localStorage.getItem("token");
+
+      const followersRes = await axios.get(
+        `${import.meta.env.VITE_API_BASE_URL}/followers/${user_id}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      const followingsRes = await axios.get(
+        `${import.meta.env.VITE_API_BASE_URL}/followings/${user_id}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      setFollowersCount(followersRes.data.length);
+      setFollowingsCount(followingsRes.data.length);
+    } catch (error) {
+      console.error(
+        "Error fetching followers data:",
+        error.response?.data || error.message
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Run on component load
+  useEffect(() => {
+    if (user_id) {
+      fetchFollowersData();
+    }
+  }, [user_id]);
 
   useEffect(() => {
     let isMounted = true;
@@ -31,9 +77,9 @@ const ProfileCard = () => {
       .get(`${import.meta.env.VITE_API_BASE_URL}/user/profile/${userId}`)
       .then((res) => {
         if (!isMounted) return;
-        
+
         setPostsCount(res.data.posts_count || 0);
-        
+
         let userData = {
           ...res.data.user,
           ...res.data.profile,
@@ -67,11 +113,9 @@ const ProfileCard = () => {
       isMounted = false;
     };
   }, []);
-  
+
   if (loading) {
-    return (
-      <Preloader />
-    );
+    return <Preloader />;
   }
 
   if (error) {
@@ -131,11 +175,11 @@ const ProfileCard = () => {
           <div className="text-xs text-gray-500 font-sf">Posts</div>
         </div>
         <div>
-          <div className="font-bold text-gray-900 text-lg">250</div>
+          <div className="font-bold text-gray-900 text-lg">{followersCount}</div>
           <div className="text-xs text-gray-500 font-sf">Followers</div>
         </div>
         <div>
-          <div className="font-bold text-gray-900 text-lg">160</div>
+          <div className="font-bold text-gray-900 text-lg">{followingsCount}</div>
           <div className="text-xs text-gray-500 font-sf">Following</div>
         </div>
       </div>

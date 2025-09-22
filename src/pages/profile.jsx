@@ -42,9 +42,10 @@ import { useParams } from "react-router-dom";
 import CreatePost from "../components/profilecomponents/CreatePost";
 import CreatePoll from "../components/profilecomponents/CreatePoll";
 
-const   Profile = () => {
+const Profile = () => {
   const [apiPosts, setApiPosts] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [preloading, setPreLoading] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [fetchedPostIds, setFetchedPostIds] = useState([]);
 
@@ -117,19 +118,111 @@ const   Profile = () => {
   const [suggestedUsers, setSuggestedUsers] = useState([]);
   const [suggestedLoading, setSuggestedLoading] = useState(true);
   const [suggestedError, setSuggestedError] = useState(null);
-  //post states
   const [showCreatePostModel, setShowCreatePostModel] = useState(false);
   const [showPoll, setShowPoll] = useState(false);
+  const [followersCount, setFollowersCount] = useState(0);
+  const [followingsCount, setFollowingsCount] = useState(0);
+  const [isFollowing, setIsFollowing] = useState(false);
+
+  const [followStatusLoading, setFollowStatusLoading] = useState(false);
+  const [followersDataLoading, setFollowersDataLoading] = useState(false);
+  const [followToggleLoading, setFollowToggleLoading] = useState(false);
+  const [profileDataLoading, setProfileDataLoading] = useState(true);
 
   const { id } = useParams();
   const user_id = localStorage.getItem("user_id");
 
-  // if(id)
-  // {
-  //   console.log("Not authenticated" , id);
-  // }else{
-  //   console.log("authenticated" , id);
-  // }
+  const checkFollowStatus = async () => {
+    if (user_id === id) {
+      setIsFollowing(false);
+      return;
+    }
+
+    setFollowStatusLoading(true);
+    try {
+      const res = await axios.get(
+        `${import.meta.env.VITE_API_BASE_URL}/is-following/${id}`,
+        {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+        }
+      );
+      setIsFollowing(res.data.is_following);
+    } catch (error) {
+      console.error("Error checking follow status:", error);
+    } finally {
+      setFollowStatusLoading(false);
+    }
+  };
+
+  const fetchFollowersData = async () => {
+    setFollowersDataLoading(true);
+    try {
+      const token = localStorage.getItem("token");
+
+      const [followersRes, followingsRes] = await Promise.all([
+        axios.get(`${import.meta.env.VITE_API_BASE_URL}/followers/${id}`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }),
+        axios.get(`${import.meta.env.VITE_API_BASE_URL}/followings/${id}`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }),
+      ]);
+
+      setFollowersCount(followersRes.data.length);
+      setFollowingsCount(followingsRes.data.length);
+    } catch (error) {
+      console.error(
+        "Error fetching followers data:",
+        error.response?.data || error.message
+      );
+    } finally {
+      setFollowersDataLoading(false);
+    }
+  };
+
+  const handleFollowToggle = async () => {
+    if (user_id === id) return;
+
+    setFollowToggleLoading(true);
+    try {
+      if (isFollowing) {
+        await axios.delete(
+          `${import.meta.env.VITE_API_BASE_URL}/unfollow/${id}`,
+          {
+            headers: {
+              Authorization: `Bearer ${localStorage.getItem("token")}`,
+            },
+          }
+        );
+        setIsFollowing(false);
+        setFollowersCount((prev) => Math.max(0, prev - 1));
+      } else {
+        // Follow
+        await axios.post(
+          `${import.meta.env.VITE_API_BASE_URL}/follow/${id}`,
+          {},
+          {
+            headers: {
+              Authorization: `Bearer ${localStorage.getItem("token")}`,
+            },
+          }
+        );
+        setIsFollowing(true);
+        setFollowersCount((prev) => prev + 1);
+      }
+    } catch (error) {
+      console.error("Error following/unfollowing:", error);
+    } finally {
+      setFollowToggleLoading(false);
+    }
+  };
+
 
   const fetchPosts = async () => {
     if (loading || !hasMore) return;
@@ -379,89 +472,47 @@ const   Profile = () => {
   const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0 });
   const [userProfile, setUserProfile] = useState(null);
 
-  // Load initial posts
-  useEffect(() => {
-    setApiPosts([]);
-    setFetchedPostIds([]);
-    setHasMore(true);
-    fetchPosts();
-  }, [id]);
+  // 👇 Function ko component ke andar top level par define karo
+  const fetchUserProfile = async (userId, id) => {
+    setProfileDataLoading(true);
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_API_BASE_URL}/user/profile/${
+          userId !== id ? id : userId
+        }`
+      );
+      const data = await response.json();
 
-  useEffect(() => {
-    const userId = localStorage.getItem("user_id");
-    if (!userId) return;
+      setUserProfile(data.user);
 
-    fetch(
-      `${import.meta.env.VITE_API_BASE_URL}/user/profile/${
-        userId !== id ? id : userId
-      }`
-    )
-      .then((res) => res.json())
-      .then((data) => {
-        setUserProfile(data.user);
+      // Handle profile photo
+      if (data.user?.profile?.profile_photo) {
+        const baseUrl = import.meta.env.VITE_API_BASE_URL.replace("/api", "");
+        const profilePhotoUrl = data.user.profile.profile_photo.startsWith(
+          "http"
+        )
+          ? data.user.profile.profile_photo
+          : `${baseUrl}/storage/${data.user.profile.profile_photo}`;
+        setCurrentProfilePhoto(profilePhotoUrl);
+      }
 
-        // Handle profile photo
-        if (data.user && data.user.profile && data.user.profile.profile_photo) {
-          const baseUrl = import.meta.env.VITE_API_BASE_URL.replace("/api", "");
-          const profilePhotoUrl = data.user.profile.profile_photo.startsWith(
-            "http"
-          )
-            ? data.user.profile.profile_photo
-            : `${baseUrl}/storage/${data.user.profile.profile_photo}`;
-
-          console.log("Profile Photo URL:", profilePhotoUrl);
-          setCurrentProfilePhoto(profilePhotoUrl);
-        }
-
-        // Handle banner photo
-        if (data.user && data.user.profile && data.user.profile.cover_photo) {
-          const baseUrl = import.meta.env.VITE_API_BASE_URL.replace("/api", "");
-          const bannerPhotoUrl = data.user.profile.cover_photo.startsWith(
-            "http"
-          )
-            ? data.user.profile.cover_photo
-            : `${baseUrl}/storage/${data.user.profile.cover_photo}`;
-
-          console.log("Banner Photo URL:", bannerPhotoUrl);
-          setCurrentBannerPhoto(bannerPhotoUrl);
-        }
-      })
-      .catch(() => setUserProfile(null));
-  }, [refreshTrigger, id]);
-
-  useEffect(() => {
-    if (
-      showeditcoverPopup ||
-      showeditprofilePopup ||
-      showeditintroPopup ||
-      showreqmemPopup ||
-      showAccountKeySettings ||
-      showPrivacySettings ||
-      showLanguageSettings ||
-      showManageNotification ||
-      showBlockedUser ||
-      showDeactivateAccount ||
-      showHelpCenter
-    ) {
-      document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "auto";
+      // Handle banner photo
+      if (data.user?.profile?.cover_photo) {
+        const baseUrl = import.meta.env.VITE_API_BASE_URL.replace("/api", "");
+        const bannerPhotoUrl = data.user.profile.cover_photo.startsWith("http")
+          ? data.user.profile.cover_photo
+          : `${baseUrl}/storage/${data.user.profile.cover_photo}`;
+        setCurrentBannerPhoto(bannerPhotoUrl);
+      }
+    } catch (error) {
+      console.error("Error fetching user profile:", error);
+      setUserProfile(null);
+    } finally {
+      setProfileDataLoading(false);
     }
-  }, [
-    showeditcoverPopup,
-    showeditprofilePopup,
-    showeditintroPopup,
-    showreqmemPopup,
-    showAccountKeySettings,
-    showPrivacySettings,
-    showLanguageSettings,
-    showManageNotification,
-    showBlockedUser,
-    showDeactivateAccount,
-    showHelpCenter,
-  ]);
+  };
 
-  useEffect(() => {
+ useEffect(() => {
     function handleClickOutside(event) {
       if (
         !event.target.closest(".profile-dropdown-menu") &&
@@ -480,6 +531,7 @@ const   Profile = () => {
     };
   }, [showDropdown]);
 
+  // Move this useEffect up from line ~500
   useEffect(() => {
     const fetchRandomUsers = async () => {
       try {
@@ -526,6 +578,87 @@ const   Profile = () => {
     fetchRandomUsers();
   }, []);
 
+  useEffect(() => {
+    const userId = localStorage.getItem("user_id");
+    if (!userId || !id) return;
+
+    fetchUserProfile(userId, id);
+  }, [refreshTrigger, id]);
+
+  useEffect(() => {
+    if (!id) return;
+
+    setApiPosts([]);
+    setFetchedPostIds([]);
+    setHasMore(true);
+    setFollowersCount(0);
+    setFollowingsCount(0);
+    setIsFollowing(false);
+    setProfileDataLoading(true);
+    setFollowersDataLoading(true);
+    setFollowStatusLoading(true);
+
+    const fetchData = async () => {
+      try {
+        const userId = localStorage.getItem("user_id");
+        await fetchUserProfile(userId, id);
+        await Promise.all([
+          fetchPosts(),
+          fetchFollowersData(),
+          checkFollowStatus(),
+        ]);
+      } catch (error) {
+        console.error("Error fetching data:", error);
+      }
+    };
+
+    fetchData();
+  }, [id]);
+
+    const fetchRandomUsers = async () => {
+      try {
+        setSuggestedLoading(true);
+        const response = await axios.post(
+          `${import.meta.env.VITE_API_BASE_URL}/users/getrandomusers`,
+          { limit: 5 },
+          {
+            headers: {
+              Authorization: `Bearer ${localStorage.getItem("token")}`,
+            },
+          }
+        );
+
+        const processedUsers = response.data.users.map((user) => {
+          let profilePic = "https://randomuser.me/api/portraits/women/44.jpg";
+
+          if (user.profile?.profile_photo) {
+            const baseUrl = import.meta.env.VITE_API_BASE_URL.replace(
+              "/api",
+              ""
+            );
+            profilePic = user.profile.profile_photo.startsWith("http")
+              ? user.profile.profile_photo
+              : `${baseUrl}/storage/${user.profile.profile_photo}`;
+          }
+
+          return {
+            id: user.id,
+            name: user.name,
+            role: user.profile?.headline || "No headline",
+            image: profilePic,
+          };
+        });
+
+        setSuggestedUsers(processedUsers);
+        setSuggestedLoading(false);
+      } catch (err) {
+        setSuggestedError(err.message);
+        setSuggestedLoading(false);
+      }
+    };
+
+
+
   const handleDropdownToggle = () => {
     if (!showDropdown && iconRef.current) {
       const rect = iconRef.current.getBoundingClientRect();
@@ -548,6 +681,7 @@ const   Profile = () => {
 
   return (
     <>
+      {preloading && <Preloader />}
       {showCreatePostModel && (
         <CreatePost
           onClose={() => setShowCreatePostModel(false)}
@@ -645,15 +779,22 @@ const   Profile = () => {
               <div className="bg-white rounded-lg border border-[#7c87bc] shadow-lg overflow-hidden">
                 {/* Cover Photo */}
                 <div className="relative h-48 bg-gradient-to-r from-gray-800 to-gray-900 overflow-hidden">
-                  <img
-                    src={
-                      currentBannerPhoto ||
-                      "https://images.pexels.com/photos/1181675/pexels-photo-1181675.jpeg?_gl=1*1ssvgvw*_ga*MzkyNzI2MjYwLjE3NDY2MzYwNzY.*_ga_8JE65Q40S6*czE3NTI2OTA2MDckbzE5JGcxJHQxNzUyNjkwNjYyJGo1JGwwJGgw"
-                    }
-                    alt="Cover"
-                    className="w-full h-full object-cover"
-                  />
-                  {user_id === id && (
+                  {profileDataLoading ? (
+                    <div className="w-full h-full bg-gray-300 animate-pulse flex items-center justify-center">
+                      <div className="w-8 h-8 border-4 border-[#0017e7] border-t-transparent rounded-full animate-spin"></div>
+                    </div>
+                  ) : (
+                    <img
+                      src={
+                        currentBannerPhoto ||
+                        "https://images.pexels.com/photos/1181675/pexels-photo-1181675.jpeg?_gl=1*1ssvgvw*_ga*MzkyNzI2MjYwLjE3NDY2MzYwNzY.*_ga_8JE65Q40S6*czE3NTI2OTA2MDckbzE5JGcxJHQxNzUyNjkwNjYyJGo1JGwwJGgw"
+                      }
+                      alt="Cover"
+                      className="w-full h-full object-cover"
+                    />
+                  )}
+
+                  {user_id === id && !profileDataLoading && (
                     <button
                       onClick={() => setShoweditcoverPopup(true)}
                       className="absolute top-4 right-4 border border-[#707070] bg-white bg-opacity-80 p-2 rounded-full hover:bg-opacity-100 transition-all"
@@ -668,19 +809,23 @@ const   Profile = () => {
                   {/* Profile Picture */}
                   <div className="relative -mt-16 mb-4">
                     <div className="w-32 h-32 rounded-full border-4 border-white bg-white overflow-hidden">
-                      <img
-                        src={
-                          currentProfilePhoto ||
-                          (userProfile &&
-                            userProfile.profile &&
-                            userProfile.profile.profile_photo) ||
-                          "https://cdn.pixabay.com/photo/2023/02/18/11/00/icon-7797704_640.png"
-                        }
-                        alt="Profile"
-                        className="w-full h-full object-cover"
-                      />
+                      {profileDataLoading ? (
+                        <div className="w-full h-full bg-gray-300 animate-pulse rounded-full flex items-center justify-center">
+                          <div className="w-6 h-6 border-4 border-[#0017e7] border-t-transparent rounded-full animate-spin"></div>
+                        </div>
+                      ) : (
+                        <img
+                          src={
+                            currentProfilePhoto ||
+                            userProfile?.profile?.profile_photo ||
+                            "https://cdn.pixabay.com/photo/2023/02/18/11/00/icon-7797704_640.png"
+                          }
+                          alt="Profile"
+                          className="w-full h-full object-cover"
+                        />
+                      )}
                     </div>
-                    {user_id === id && (
+                    {user_id === id && !profileDataLoading && (
                       <button
                         onClick={() => setShoweditprofilePopup(true)}
                         className="absolute bottom-2 -right-5 bg-white border border-[#707070] p-2 rounded-full hover:bg-gray-50 transition-colors"
@@ -692,7 +837,7 @@ const   Profile = () => {
 
                   <div className="relative mb-7 bg-white rounded-md mt-5">
                     {/* Edit Button */}
-                    {user_id === id && (
+                    {user_id === id && !profileDataLoading && (
                       <button
                         onClick={() =>
                           setShoweditintroPopup({
@@ -709,39 +854,49 @@ const   Profile = () => {
                     )}
 
                     {/* Name and Title */}
-                    <div className="flex items-center gap-4 mb-2">
-                      <span className="text-3xl font-bold text-black font-sf">
-                        {userProfile ? userProfile.name : "Loading..."}
-                      </span>
-                      <button
-                        className="flex items-center bg-[#bbf1fc] rounded-full px-4 py-1 focus:outline-none"
-                        onClick={() => setShowBadgesModal(true)}
-                        style={{ cursor: "pointer" }}
-                      >
-                        <Gem className="w-5 h-5 text-[#1797a6] mr-2" />
-                        <span className="text-[#1797a6] font-medium text-base">
-                          Verified Memberships
-                        </span>
-                      </button>
-                    </div>
-
-                    <div className="flex items-center text-[#636363] mb-2">
-                      <Settings className="w-5 h-5 mr-2" />
-                      <span className="text-lg">
-                        {userProfile && userProfile.profile.headline}
-                      </span>
-
-                      <div className="flex items-center text-gray-600 ms-5">
-                        <MapPin className="w-5 h-5 mr-2" />
-                        <span className="text-lg">
-                          {userProfile && userProfile.profile.location}
-                        </span>
+                    {profileDataLoading ? (
+                      <div className="space-y-3">
+                        <div className="h-8 bg-gray-300 animate-pulse rounded w-1/3"></div>
+                        <div className="h-5 bg-gray-300 animate-pulse rounded w-1/2"></div>
                       </div>
-                    </div>
+                    ) : (
+                      <>
+                        <div className="flex items-center gap-4 mb-2">
+                          <span className="text-3xl font-bold text-black font-sf">
+                            {userProfile ? userProfile.name : "Loading..."}
+                          </span>
+                          <button
+                            className="flex items-center bg-[#bbf1fc] rounded-full px-4 py-1 focus:outline-none"
+                            onClick={() => setShowBadgesModal(true)}
+                            style={{ cursor: "pointer" }}
+                          >
+                            <Gem className="w-5 h-5 text-[#1797a6] mr-2" />
+                            <span className="text-[#1797a6] font-medium text-base">
+                              Verified Memberships
+                            </span>
+                          </button>
+                        </div>
+
+                        <div className="flex items-center text-[#636363] mb-2">
+                          <Settings className="w-5 h-5 mr-2" />
+                          <span className="text-lg">
+                            {userProfile?.profile?.headline || "No headline"}
+                          </span>
+
+                          <div className="flex items-center text-gray-600 ms-5">
+                            <MapPin className="w-5 h-5 mr-2" />
+                            <span className="text-lg">
+                              {userProfile?.profile?.location || "No location"}
+                            </span>
+                          </div>
+                        </div>
+                      </>
+                    )}
                   </div>
 
-                  {/* Stats */}
+                  {/* Stats Section with Loader */}
                   <div className="flex space-x-7 mb-8">
+                    {/* Posts Count */}
                     <div className="flex items-center space-x-1 font-sf">
                       <span className="text-lg font-semibold text-gray-900">
                         {totalPosts}
@@ -750,18 +905,40 @@ const   Profile = () => {
                         post
                       </span>
                     </div>
+
+                    {/* Followers Count with Loader */}
                     <div className="flex items-center space-x-1 font-sf">
-                      <span className="text-lg font-semibold text-gray-900">
-                        250
-                      </span>
+                      {followersDataLoading ? (
+                        <div className="flex items-center space-x-2">
+                          <div className="w-4 h-4 border-2 border-[#0017e7] border-t-transparent rounded-full animate-spin"></div>
+                          <span className="text-lg font-semibold text-gray-900">
+                            ...
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="text-lg font-semibold text-gray-900">
+                          {followersCount}
+                        </span>
+                      )}
                       <span className="text-md font-medium text-gray-500 font-sf">
                         followers
                       </span>
                     </div>
+
+                    {/* Following Count with Loader */}
                     <div className="flex items-center space-x-1 font-sf">
-                      <span className="text-lg font-semibold text-gray-900">
-                        160
-                      </span>
+                      {followersDataLoading ? (
+                        <div className="flex items-center space-x-2">
+                          <div className="w-4 h-4 border-2 border-[#0017e7] border-t-transparent rounded-full animate-spin"></div>
+                          <span className="text-lg font-semibold text-gray-900">
+                            ...
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="text-lg font-semibold text-gray-900">
+                          {followingsCount}
+                        </span>
+                      )}
                       <span className="text-md text-gray-500 font-sf font-medium">
                         following
                       </span>
@@ -769,11 +946,16 @@ const   Profile = () => {
                   </div>
 
                   {/* Action Buttons */}
-                  {user_id === id ? (
+                  {profileDataLoading ? (
+                    <div className="flex space-x-3">
+                      <div className="bg-gray-300 animate-pulse py-2.5 px-6 rounded-md w-48"></div>
+                      <div className="border border-gray-300 animate-pulse py-2.5 px-6 rounded-md w-32"></div>
+                    </div>
+                  ) : user_id === id ? (
                     <div className="flex space-x-3">
                       <button
                         onClick={() => setShowreqmemPopup(true)}
-                        className=" bg-[#0017e7] text-white py-2.5 px-6 rounded-md hover:bg-[#0012b7] transition-colors  font-sf"
+                        className="bg-[#0017e7] text-white py-2.5 px-6 rounded-md hover:bg-[#0012b7] transition-colors font-sf"
                       >
                         Request Membership
                       </button>
@@ -786,9 +968,44 @@ const   Profile = () => {
                     </div>
                   ) : (
                     <div className="flex space-x-3">
-                      <button className=" bg-[#0017e7] text-white py-2.5 px-6 rounded-md hover:bg-[#0012b7] transition-colors  font-sf">
-                        Follow
-                      </button>
+                      {/* Follow Button with Status Loader */}
+                      {followStatusLoading ? (
+                        <button
+                          disabled
+                          className="py-2.5 px-6 bg-gray-200 text-gray-500 rounded-md font-sf cursor-not-allowed"
+                        >
+                          <div className="flex items-center justify-center">
+                            <div className="w-4 h-4 border-2 border-gray-500 border-t-transparent rounded-full animate-spin mr-2"></div>
+                            Checking...
+                          </div>
+                        </button>
+                      ) : (
+                        <button
+                          disabled={followToggleLoading}
+                          onClick={handleFollowToggle}
+                          className={`py-2.5 px-6 rounded-md transition-colors font-sf relative ${
+                            isFollowing
+                              ? "bg-gray-200 text-black hover:bg-gray-300"
+                              : "bg-[#0017e7] text-white hover:bg-[#0012b7]"
+                          } ${
+                            followToggleLoading
+                              ? "opacity-70 cursor-not-allowed"
+                              : ""
+                          }`}
+                        >
+                          {followToggleLoading ? (
+                            <div className="flex items-center justify-center">
+                              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                              {isFollowing ? "Unfollowing..." : "Following..."}
+                            </div>
+                          ) : isFollowing ? (
+                            "Unfollow"
+                          ) : (
+                            "Follow"
+                          )}
+                        </button>
+                      )}
+
                       <button className="px-6 py-2.5 border border-black text-gray-700 rounded-md hover:bg-gray-50 transition-colors font-sf font-medium">
                         Message
                       </button>
@@ -809,8 +1026,22 @@ const   Profile = () => {
 
                 <div className="p-5">
                   {suggestedLoading ? (
-                    <div className="text-center py-4">
-                      <p className="text-gray-500">Loading suggestions...</p>
+                    <div className="space-y-5">
+                      {[1, 2, 3, 4, 5].map((item) => (
+                        <div
+                          key={item}
+                          className="flex items-center justify-between"
+                        >
+                          <div className="flex items-center space-x-3">
+                            <div className="w-14 h-14 bg-gray-300 animate-pulse rounded-full"></div>
+                            <div className="space-y-2">
+                              <div className="w-20 h-4 bg-gray-300 animate-pulse rounded"></div>
+                              <div className="w-16 h-3 bg-gray-300 animate-pulse rounded"></div>
+                            </div>
+                          </div>
+                          <div className="w-12 h-8 bg-gray-300 animate-pulse rounded"></div>
+                        </div>
+                      ))}
                     </div>
                   ) : suggestedError ? (
                     <div className="text-center py-4">
@@ -857,7 +1088,7 @@ const   Profile = () => {
             </div>
           </div>
 
-          {/* Navigation Tabs - Full Width Below Grid */}
+          {/* Navigation Tabs */}
           <div className="mt-4">
             <div className="col-span-12">
               <div className="bg-white rounded-lg border border-[#7c87bc] shadow-lg overflow-hidden">
