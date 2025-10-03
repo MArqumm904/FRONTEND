@@ -1,23 +1,84 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Upload, X } from "lucide-react";
 
-export default function ViewConfirmationLetter({ onClose }) {
+export default function ViewConfirmationLetter({ onClose, agencyData }) {
   const [formData, setFormData] = useState({
-    Name: "StarTech Pvt Ltd",
-    jobTitle: "UI/UX Designer",
-    location: "Karachi, Pakistan",
-    startDate: "June 2021",
-    endDate: "January 2023",
-    currentlyWorking: true,
-    responsibilities:
-      "Responsible for designing user flows, wireframes, and interactive prototypes.",
+    Name: "",
+    jobTitle: "",
+    location: "",
+    startDate: "",
+    endDate: "",
+    currentlyWorking: false,
+    responsibilities: "",
   });
   const [letterPreview, setLetterPreview] = useState(null);
   const [showLetter, setShowLetter] = useState(false);
   const [uploadedLetter, setUploadedLetter] = useState(null);
-  const [documentPreview, setDocumentPreview] = useState(false);
+  const [documentPreview, setDocumentPreview] = useState(null);
   const [showDocument, setShowDocument] = useState(false);
   const [uploadedDocument, setUploadedDocument] = useState(null);
+
+  useEffect(() => {
+    if (agencyData) {
+      console.log("Agency Data:", agencyData); // Debug log
+      console.log("Agency Documents:", agencyData.documents); // Debug log
+      
+      setFormData({
+        Name: agencyData.company_name || "",
+        jobTitle: agencyData.job_title || "",
+        location: agencyData.location || "",
+        startDate: agencyData.start_date ? formatDate(agencyData.start_date) : "",
+        endDate: agencyData.end_date ? formatDate(agencyData.end_date) : "",
+        currentlyWorking: agencyData.currently_working || false,
+        responsibilities: agencyData.responsibilities || "",
+      });
+
+      // Set confirmation letter preview if available
+      if (agencyData.documents && agencyData.documents.length > 0) {
+        console.log("Documents found:", agencyData.documents); // Debug log
+        
+        // Last document use karo (most recent)
+        const latestDocument = agencyData.documents[agencyData.documents.length - 1];
+        console.log("Latest Document:", latestDocument); // Debug log
+        
+        // Confirmation Letter
+        if (latestDocument.confirmation_letter) {
+          const fullUrl = latestDocument.confirmation_letter.startsWith('http') 
+            ? latestDocument.confirmation_letter 
+            : `http://127.0.0.1:8000/storage/${latestDocument.confirmation_letter}`;
+          
+          console.log("Confirmation Letter URL:", fullUrl); // Debug log
+          setLetterPreview(fullUrl);
+          setUploadedLetter({ name: 'Confirmation Letter', url: fullUrl });
+        }
+
+        // Proof Document
+        if (latestDocument.proof_document) {
+          const fullUrl = latestDocument.proof_document.startsWith('http') 
+            ? latestDocument.proof_document 
+            : `http://127.0.0.1:8000/storage/${latestDocument.proof_document}`;
+          
+          console.log("Proof Document URL:", fullUrl); // Debug log
+          setDocumentPreview(fullUrl);
+          setUploadedDocument({ name: 'Proof Document', url: fullUrl });
+        }
+      } else {
+        console.log("No documents found in agency data"); // Debug log
+      }
+    }
+  }, [agencyData]);
+
+  // Date format karne ka function
+  const formatDate = (dateString) => {
+    if (!dateString) return "";
+    try {
+      const date = new Date(dateString);
+      return date.toISOString().split('T')[0];
+    } catch (error) {
+      console.error("Date formatting error:", error);
+      return dateString;
+    }
+  };
 
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -27,60 +88,67 @@ export default function ViewConfirmationLetter({ onClose }) {
     }));
   };
 
-  const handleLetterUpload = (event) => {
-    const file = event.target.files[0];
-    if (file) {
-      setUploadedLetter(file);
-      setFormData((prev) => ({
-        ...prev,
-        confirmation_letter: file,
-      }));
-
-      if (file.type.startsWith("image/")) {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          setLetterPreview(e.target.result);
-        };
-        reader.readAsDataURL(file);
-      } else {
-        setLetterPreview(null);
-      }
-    }
-  };
-
-  const handleDocumentUpload = (event) => {
-    const file = event.target.files[0];
-    if (file) {
-      setUploadedDocument(file);
-      setFormData((prev) => ({
-        ...prev,
-        proof_document: file,
-      }));
-
-      if (file.type.startsWith("image/")) {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          setDocumentPreview(e.target.result);
-        };
-        reader.readAsDataURL(file);
-      } else {
-        setDocumentPreview(null);
-      }
-    }
-  };
-
-  const handleSubmit = () => {
-    console.log("Form submitted:", formData);
-    onClose();
-  };
-
-  const handleRemoveRequest = () => {
-    console.log("Remove request clicked");
-    onClose();
-  };
-
   const handleModalClick = (e) => {
     e.stopPropagation();
+  };
+
+  const getFileExtension = (url) => {
+    if (!url) return '';
+    try {
+      // URL se filename extract karo
+      const filename = url.split('/').pop();
+      return filename.split('.').pop().toLowerCase();
+    } catch (error) {
+      return '';
+    }
+  };
+
+  const isImageFile = (url) => {
+    const extension = getFileExtension(url);
+    return ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'].includes(extension);
+  };
+
+  const isPdfFile = (url) => {
+    const extension = getFileExtension(url);
+    return extension === 'pdf';
+  };
+
+  const renderDocumentPreview = (url, type) => {
+    if (!url) return null;
+
+    if (isImageFile(url)) {
+      return (
+        <img
+          src={url}
+          alt={`${type} Preview`}
+          className="max-w-full max-h-96 object-contain rounded-lg"
+        />
+      );
+    } else if (isPdfFile(url)) {
+      return (
+        <div className="w-full h-96">
+          <iframe
+            src={url}
+            className="w-full h-full rounded-lg"
+            title={`${type} Preview`}
+          />
+        </div>
+      );
+    } else {
+      return (
+        <div className="text-center p-4">
+          <p className="text-gray-600">Document format not supported for preview</p>
+          <a 
+            href={url} 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="text-blue-600 hover:underline mt-2 inline-block"
+          >
+            Download Document
+          </a>
+        </div>
+      );
+    }
   };
 
   return (
@@ -113,6 +181,7 @@ export default function ViewConfirmationLetter({ onClose }) {
               onChange={handleInputChange}
               className="w-full px-3 font-sf py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               placeholder="Company / Organization Name"
+              readOnly
             />
           </div>
 
@@ -128,6 +197,7 @@ export default function ViewConfirmationLetter({ onClose }) {
               onChange={handleInputChange}
               className="w-full px-3 font-sf py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               placeholder="Job Title"
+              readOnly
             />
           </div>
 
@@ -143,6 +213,7 @@ export default function ViewConfirmationLetter({ onClose }) {
               onChange={handleInputChange}
               className="w-full px-3 font-sf py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               placeholder="Location"
+              readOnly
             />
           </div>
 
@@ -158,12 +229,12 @@ export default function ViewConfirmationLetter({ onClose }) {
               onChange={handleInputChange}
               className="w-full px-3 font-sf py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               placeholder="Start Date"
+              readOnly
             />
           </div>
 
-          {/* End Date */}
           {/* End Date - Only show if NOT currently working */}
-          {!formData.currentlyWorking && (
+          {!formData.currentlyWorking && formData.endDate && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1 font-sf">
                 End Date
@@ -175,6 +246,7 @@ export default function ViewConfirmationLetter({ onClose }) {
                 onChange={handleInputChange}
                 className="w-full px-3 font-sf py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 placeholder="End Date"
+                readOnly
               />
             </div>
           )}
@@ -187,8 +259,9 @@ export default function ViewConfirmationLetter({ onClose }) {
               id="currentlyWorking"
               checked={formData.currentlyWorking}
               onChange={handleInputChange}
-              className="w-7 h-7 font-sf bg-gray-100 border-gray-300 rounded "
+              className="w-7 h-7 font-sf bg-gray-100 border-gray-300 rounded"
               style={{ accentColor: "#8bc53d" }}
+              disabled
             />
             <label
               htmlFor="currentlyWorking"
@@ -210,180 +283,127 @@ export default function ViewConfirmationLetter({ onClose }) {
               rows={3}
               className="w-full px-3 py-2 border font-sf border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
               placeholder="Responsibilities"
+              readOnly
             />
           </div>
 
           {/* Upload Certificate */}
           <div>
             <label className="block text-sm font-medium text-[#707070] mb-2 font-sf">
-              Attach Confirmation Letter
+              Confirmation Letter
             </label>
-            <div
-              className="border-2 border-dashed border-gray-300 rounded-md p-6 text-center relative overflow-hidden"
-              style={{
-                backgroundImage: letterPreview
-                  ? `url(${letterPreview})`
-                  : "none",
-                backgroundSize: "cover",
-                backgroundPosition: "center",
-                backgroundRepeat: "no-repeat",
-                backgroundPosition: "top",
-              }}
-            >
-              {/* Dark overlay when image is present */}
-              {letterPreview && (
-                <div className="absolute inset-0 bg-black bg-opacity-40 rounded-md"></div>
-              )}
-
-              <input
-                type="file"
-                id="letter-upload"
-                accept=".pdf,.jpg,.jpeg,.png"
-                onChange={handleLetterUpload}
-                className="hidden"
-              />
-
-              {!letterPreview ? (
-                <label
-                  htmlFor="letter-upload"
-                  className="cursor-pointer flex justify-center items-center relative z-10"
-                >
-                  <div className="w-10 h-10 flex items-center justify-center">
-                    <Upload className="w-6 h-6 text-gray-900" />
+            <div className="border-2 border-dashed border-gray-300 rounded-md p-6 text-center relative overflow-hidden">
+              {letterPreview ? (
+                <div className="relative">
+                  <div className="mb-3">
+                    {isImageFile(letterPreview) ? (
+                      <img
+                        src={letterPreview}
+                        alt="Confirmation Letter Preview"
+                        className="max-w-32 max-h-32 object-contain mx-auto rounded"
+                      />
+                    ) : (
+                      <div className="bg-gray-100 p-4 rounded mx-auto max-w-32">
+                        <p className="text-sm text-gray-600">
+                          {isPdfFile(letterPreview) ? 'PDF Document' : 'Document'}
+                        </p>
+                      </div>
+                    )}
                   </div>
-                  <span className="text-sm text-gray-900 font-medium hover:text-[#0016c4] font-sf">
-                    Upload Letter
-                  </span>
-                </label>
-              ) : (
-                <div className="relative z-10">
                   <button
                     onClick={() => setShowLetter(true)}
-                    className="text-lg tracking-widest text-white font-medium hover:opacity-80 font-sf px-4 py-2 rounded-md"
+                    className="px-4 py-2 bg-[#0017E7] text-white rounded-md hover:bg-[#000f82] font-sf"
                   >
                     View Letter
                   </button>
                 </div>
+              ) : (
+                <div className="text-sm text-gray-500 font-sf">
+                  No confirmation letter attached
+                </div>
               )}
             </div>
 
-            {/* Image Preview Modal */}
+            {/* Document Preview Modal */}
             {showLetter && letterPreview && (
               <div
                 className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-[60]"
                 onClick={() => setShowLetter(false)}
               >
-                <div className="relative max-w-4xl max-h-[90vh] p-4" onClick={handleModalClick}>
+                <div className="relative max-w-4xl max-h-[90vh] p-4 bg-white rounded-lg" onClick={handleModalClick}>
                   <button
                     onClick={() => setShowLetter(false)}
-                    className="absolute -top-2 -right-2 bg-white rounded-full w-8 h-8 flex items-center justify-center text-gray-600 hover:text-gray-800 z-10"
+                    className="absolute -top-2 -right-2 bg-white rounded-full w-8 h-8 flex items-center justify-center text-gray-600 hover:text-gray-800 z-10 border border-gray-300"
                   >
                     ✕
                   </button>
-                  <img
-                    src={letterPreview}
-                    alt="Certificate Preview"
-                    className="max-w-96 max-h-96 object-contain rounded-lg"
-                  />
+                  <div className="p-4">
+                    <h3 className="text-lg font-sf font-semibold mb-4">Confirmation Letter</h3>
+                    {renderDocumentPreview(letterPreview, 'Confirmation Letter')}
+                  </div>
                 </div>
               </div>
             )}
           </div>
-          
-          
+
+          {/* Proof Document */}
           <div>
             <label className="block text-sm font-medium text-[#707070] mb-2 font-sf">
-              Attach Proof Document (Optional)
+              Proof Document (Optional)
             </label>
-            <div
-              className="border-2 border-dashed border-gray-300 rounded-md p-6 text-center relative overflow-hidden"
-              style={{
-                backgroundImage: documentPreview
-                  ? `url(${documentPreview})`
-                  : "none",
-                backgroundSize: "cover",
-                backgroundPosition: "center",
-                backgroundRepeat: "no-repeat",
-                backgroundPosition: "top",
-              }}
-            >
-              {/* Dark overlay when image is present */}
-              {documentPreview && (
-                <div className="absolute inset-0 bg-black bg-opacity-40 rounded-md"></div>
-              )}
-
-              <input
-                type="file"
-                id="document-upload"
-                accept=".pdf,.jpg,.jpeg,.png"
-                onChange={handleDocumentUpload}
-                className="hidden"
-              />
-
-              {!documentPreview ? (
-                <label
-                  htmlFor="document-upload"
-                  className="cursor-pointer flex justify-center items-center relative z-10"
-                >
-                  <div className="w-10 h-10 flex items-center justify-center">
-                    <Upload className="w-6 h-6 text-gray-900" />
+            <div className="border-2 border-dashed border-gray-300 rounded-md p-6 text-center relative overflow-hidden">
+              {documentPreview ? (
+                <div className="relative">
+                  <div className="mb-3">
+                    {isImageFile(documentPreview) ? (
+                      <img
+                        src={documentPreview}
+                        alt="Proof Document Preview"
+                        className="max-w-32 max-h-32 object-contain mx-auto rounded"
+                      />
+                    ) : (
+                      <div className="bg-gray-100 p-4 rounded mx-auto max-w-32">
+                        <p className="text-sm text-gray-600">
+                          {isPdfFile(documentPreview) ? 'PDF Document' : 'Document'}
+                        </p>
+                      </div>
+                    )}
                   </div>
-                  <span className="text-sm text-gray-900 font-medium hover:text-[#0016c4] font-sf">
-                    Upload Document
-                  </span>
-                </label>
-              ) : (
-                <div className="relative z-10">
                   <button
                     onClick={() => setShowDocument(true)}
-                    className="text-lg tracking-widest text-white font-medium hover:opacity-80 font-sf px-4 py-2 rounded-md"
+                    className="px-4 py-2 bg-[#0017E7] text-white rounded-md hover:bg-[#000f82] font-sf"
                   >
                     View Document
                   </button>
                 </div>
+              ) : (
+                <div className="text-sm text-gray-500 font-sf">
+                  No proof document attached
+                </div>
               )}
             </div>
 
-            {/* Image Preview Modal */}
+            {/* Document Preview Modal */}
             {showDocument && documentPreview && (
               <div
                 className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-[60]"
                 onClick={() => setShowDocument(false)}
               >
-                <div className="relative max-w-4xl max-h-[90vh] p-4" onClick={handleModalClick} >
+                <div className="relative max-w-4xl max-h-[90vh] p-4 bg-white rounded-lg" onClick={handleModalClick}>
                   <button
                     onClick={() => setShowDocument(false)}
-                    className="absolute -top-2 -right-2 bg-white rounded-full w-8 h-8 flex items-center justify-center text-gray-600 hover:text-gray-800 z-10"
+                    className="absolute -top-2 -right-2 bg-white rounded-full w-8 h-8 flex items-center justify-center text-gray-600 hover:text-gray-800 z-10 border border-gray-300"
                   >
                     ✕
                   </button>
-                  <img
-                    src={documentPreview}
-                    alt="Certificate Preview"
-                    className="max-w-96 max-h-96 object-contain rounded-lg"
-                  />
+                  <div className="p-4">
+                    <h3 className="text-lg font-sf font-semibold mb-4">Proof Document</h3>
+                    {renderDocumentPreview(documentPreview, 'Proof Document')}
+                  </div>
                 </div>
               </div>
             )}
           </div>
-
-          {/* Action Buttons */}
-          {/* <div className="flex space-x-3 pt-4">
-            <button
-              type="button"
-              onClick={handleSubmit}
-              className="flex-1 bg-[#0017e7] font-sf text-white py-2 px-4 rounded-md hover:bg-[#0014cc] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors "
-            >
-              Send Request
-            </button>
-            <button
-              type="button"
-              onClick={handleRemoveRequest}
-              className="flex-1 border border-gray-700 font-sf bg-gray-100 text-black py-2 px-4 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-colors"
-            >
-              Remove Request
-            </button>
-          </div> */}
         </div>
       </div>
     </div>

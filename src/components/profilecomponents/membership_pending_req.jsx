@@ -5,11 +5,13 @@ import ViewMembershipModal from "./view_membership_modal";
 import axios from "axios";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import EditMembershipModal from "../MembershipComponents/EditMembershipModal";
 
 const MembershipCard = ({
   membership,
   onViewLetter,
   onCancelRequest,
+  onEditMembership,
   isCanceling,
 }) => {
   // Format date for display
@@ -22,14 +24,25 @@ const MembershipCard = ({
   const isPending = membership.status === "pending";
   const isCompanyApproved = membership.status === "company_approved";
 
+  // Get base URL from environment variable
+  const baseUrl = "http://127.0.0.1:8000/storage";
+
+  // Get profile photo URL with proper base URL
+  const profilePhotoUrl = membership.page?.page_profile_photo
+    ? `${baseUrl}/${membership.page.page_profile_photo}`
+    : Logo;
+
   return (
     <div className="border border-gray-400 rounded-lg bg-white p-5 flex flex-col gap-2 mb-4 relative shadow-sm">
       <div className="flex items-start gap-4">
-        {/* Logo */}
+        {/* Logo - Now using actual page profile photo */}
         <img
-          src={Logo}
+          src={profilePhotoUrl}
           alt="Company Logo"
           className="w-14 h-14 rounded-full object-cover bg-gray-100 border border-gray-200"
+          onError={(e) => {
+            e.target.src = Logo; // Fallback to default logo if image fails to load
+          }}
         />
         <div className="flex-1 min-w-0">
           <div className="flex flex-wrap items-center gap-2 mb-1">
@@ -52,7 +65,13 @@ const MembershipCard = ({
           </div>
         </div>
         {/* Edit Icon */}
-        <Edit className="w-5 h-5 text-gray-400 cursor-pointer hover:text-gray-600" />
+        <button
+          onClick={() => onEditMembership(membership)}
+          className="w-5 h-5 text-gray-400 cursor-pointer hover:text-gray-600 transition-colors"
+          disabled={isCanceling}
+        >
+          <Edit className="w-5 h-5" />
+        </button>
       </div>
       <div className="mt-2 mb-2">
         <p className="text-gray-500 text-base font-sf">
@@ -115,6 +134,8 @@ const MembershipPendingReq = () => {
   const [showViewModal, setShowViewModal] = useState(false);
   const [selectedMembership, setSelectedMembership] = useState(null);
   const [cancelingId, setCancelingId] = useState(null);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingMembership, setEditingMembership] = useState(null);
 
   useEffect(() => {
     fetchPendingMemberships();
@@ -138,7 +159,28 @@ const MembershipPendingReq = () => {
       );
 
       if (response.data.success) {
-        setPendingMemberships(response.data.data);
+        // Process the data to ensure proper image URLs
+        const processedMemberships = response.data.data.map((membership) => ({
+          ...membership,
+          // Add full URLs for documents and profile photos
+          processedDocuments: membership.documents?.map((doc) => ({
+            ...doc,
+            confirmation_letter_url: doc.confirmation_letter
+              ? `http://127.0.0.1:8000/storage/${doc.confirmation_letter}`
+              : null,
+            proof_document_url: doc.proof_document
+              ? `http://127.0.0.1:8000/storage/${doc.proof_document}`
+              : null,
+          })),
+          page: {
+            ...membership.page,
+            page_profile_photo_url: membership.page?.page_profile_photo
+              ? `http://127.0.0.1:8000/storage/${membership.page.page_profile_photo}`
+              : null,
+          },
+        }));
+
+        setPendingMemberships(processedMemberships);
       } else {
         setError(
           response.data.message || "Failed to fetch pending memberships"
@@ -155,7 +197,21 @@ const MembershipPendingReq = () => {
   };
 
   const handleViewLetter = (membership) => {
-    setSelectedMembership(membership);
+    // Prepare the membership data with proper URLs for the modal
+    const membershipWithUrls = {
+      ...membership,
+      documents: membership.processedDocuments || membership.documents,
+      page: {
+        ...membership.page,
+        page_profile_photo_url:
+          membership.page?.page_profile_photo_url ||
+          (membership.page?.page_profile_photo
+            ? `http://127.0.0.1:8000/storage/${membership.page.page_profile_photo}`
+            : null),
+      },
+    };
+
+    setSelectedMembership(membershipWithUrls);
     setShowViewModal(true);
   };
 
@@ -163,14 +219,14 @@ const MembershipPendingReq = () => {
     try {
       setCancelingId(membership.id);
       const token = localStorage.getItem("token");
-      
-      const userId = localStorage.getItem("user_id"); 
+
+      const userId = localStorage.getItem("user_id");
 
       const response = await axios.post(
         `${import.meta.env.VITE_API_BASE_URL}/removemember`,
-        { 
+        {
           page_id: membership.page_id,
-          user_id: userId 
+          user_id: userId,
         },
         {
           headers: {
@@ -201,9 +257,27 @@ const MembershipPendingReq = () => {
     }
   };
 
+  const handleEditMembership = (membership) => {
+    setEditingMembership(membership);
+    setShowEditModal(true);
+  };
+
+  const handleUpdateSuccess = (updatedMembership) => {
+    // Update the membership in the list
+    setPendingMemberships((prev) =>
+      prev.map((m) => (m.id === updatedMembership.id ? updatedMembership : m))
+    );
+    // toast.success("Membership updated successfully!");
+  };
+
   const handleCloseViewModal = () => {
     setShowViewModal(false);
     setSelectedMembership(null);
+  };
+
+  const handleCloseEditModal = () => {
+    setShowEditModal(false);
+    setEditingMembership(null);
   };
 
   if (loading) {
@@ -265,18 +339,19 @@ const MembershipPendingReq = () => {
 
   return (
     <>
-      <ToastContainer />{" "}
+      <ToastContainer />
       <div className="mt-2">
         {/* No Letter Yet Section */}
         {noLetterMemberships.length > 0 && (
           <div className="mb-6">
-            <h3 className="text-lg font-semibold mb-4">No Letter Attched</h3>
+            <h3 className="text-lg font-semibold mb-4">No Letter Attached</h3>
             {noLetterMemberships.map((membership) => (
               <MembershipCard
                 key={membership.id}
                 membership={membership}
                 onViewLetter={handleViewLetter}
                 onCancelRequest={handleCancelRequest}
+                onEditMembership={handleEditMembership} // Add this prop
                 isCanceling={cancelingId === membership.id}
               />
             ))}
@@ -293,16 +368,25 @@ const MembershipPendingReq = () => {
                 membership={membership}
                 onViewLetter={handleViewLetter}
                 onCancelRequest={handleCancelRequest}
+                onEditMembership={handleEditMembership} 
                 isCanceling={cancelingId === membership.id}
               />
             ))}
           </div>
         )}
 
-        {showViewModal && (
+        {showViewModal && selectedMembership && (
           <ViewMembershipModal
-            membership={selectedMembership}
+            invitation={selectedMembership}
             onClose={handleCloseViewModal}
+          />
+        )}
+
+        {showEditModal && editingMembership && (
+          <EditMembershipModal
+            membershipId={editingMembership.id}
+            onClose={handleCloseEditModal}
+            onUpdateSuccess={handleUpdateSuccess}
           />
         )}
       </div>

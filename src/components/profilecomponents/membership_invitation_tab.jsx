@@ -41,10 +41,11 @@ const updateMembershipStatus = async (userPageId, pageId, status) => {
 };
 
 const InvitationCard = ({ invitation, onViewLetter, onStatusUpdate }) => {
-  const [isUpdating, setIsUpdating] = useState(false);
+  const [isApproving, setIsApproving] = useState(false);
+  const [isRejecting, setIsRejecting] = useState(false);
 
   const handleApprove = async () => {
-    setIsUpdating(true);
+    setIsApproving(true);
     try {
       await updateMembershipStatus(
         invitation.user_page_id,
@@ -56,12 +57,12 @@ const InvitationCard = ({ invitation, onViewLetter, onStatusUpdate }) => {
       console.error("Error approving membership:", error);
       alert("Failed to approve membership. Please try again.");
     } finally {
-      setIsUpdating(false);
+      setIsApproving(false);
     }
   };
 
   const handleReject = async () => {
-    setIsUpdating(true);
+    setIsRejecting(true);
     try {
       await updateMembershipStatus(
         invitation.user_page_id,
@@ -73,7 +74,7 @@ const InvitationCard = ({ invitation, onViewLetter, onStatusUpdate }) => {
       console.error("Error rejecting membership:", error);
       alert("Failed to reject membership. Please try again.");
     } finally {
-      setIsUpdating(false);
+      setIsRejecting(false);
     }
   };
 
@@ -122,10 +123,10 @@ const InvitationCard = ({ invitation, onViewLetter, onStatusUpdate }) => {
       <div className="mt-2 flex flex-wrap gap-2">
         <button
           onClick={handleApprove}
-          disabled={isUpdating}
+          disabled={isApproving || isRejecting}
           className="flex items-center justify-center px-7 py-2 bg-[#22bb33] hover:bg-[#1e9e2a] text-white text-sm rounded-md font-sf min-w-[110px] border border-[#22bb33] transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {isUpdating ? (
+          {isApproving ? (
             <Loader2 className="w-4 h-4 animate-spin mr-2" />
           ) : (
             <span className="mr-2 text-lg">✓</span>
@@ -134,10 +135,10 @@ const InvitationCard = ({ invitation, onViewLetter, onStatusUpdate }) => {
         </button>
         <button
           onClick={handleReject}
-          disabled={isUpdating}
+          disabled={isRejecting || isApproving}
           className="flex items-center justify-center px-7 py-2 bg-[#ff2222] hover:bg-[#d11a1a] text-white text-sm rounded-md font-sf min-w-[110px] border border-[#ff2222] transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {isUpdating ? (
+          {isRejecting ? (
             <Loader2 className="w-4 h-4 animate-spin mr-2" />
           ) : (
             <span className="mr-2 text-lg">✗</span>
