@@ -12,7 +12,7 @@ const StartChat = ({ isOpen, onClose, onChatCreated }) => {
   const [loading, setLoading] = useState(false);
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
   const STORAGE_BASE_URL =
-    (API_BASE_URL?.replace(/\/?api\/?$/, "") || API_BASE_URL) + "/storage";
+    (API_BASE_URL?.replace(/\/?api\/?$/, "") || API_BASE_URL) + "/public/storage";
 
   const toAvatarUrl = (path) => {
     if (!path) return null;

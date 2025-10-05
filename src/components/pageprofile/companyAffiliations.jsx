@@ -3,14 +3,19 @@ import { X, MapPin, Settings, Loader2 } from "lucide-react";
 import ViewConfirmationLetter from "./view_confirmation_letter";
 import RemoveMembership from "./RemoveMembership";
 
-const AgencyCard = ({ agency, setShowConfLetterPopup, removeMembership }) => (
+const AgencyCard = ({ agency, setShowConfLetterPopup, removeMembership, isRemoving }) => (
   <div className="border border-black rounded-lg bg-white p-6 flex flex-col gap-2 mb-5 relative mx-auto">
     <button
       onClick={removeMembership}
-      className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
+      disabled={isRemoving}
+      className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
       tabIndex={-1}
     >
-      <X className="w-7 h-7" />
+      {isRemoving ? (
+        <Loader2 className="w-7 h-7 animate-spin" />
+      ) : (
+        <X className="w-7 h-7" />
+      )}
     </button>
     <div className="flex items-start gap-4">
       <img
@@ -71,6 +76,8 @@ const CompanyAffiliations = () => {
   const [showConfLetterPopup, setShowConfLetterPopup] = useState(false);
   const [showRemoveModal, setShowRemoveModal] = useState(false);
   const [selectedMember, setSelectedMember] = useState(null);
+  const [removingId, setRemovingId] = useState(null);
+  const [removeLoading, setRemoveLoading] = useState(false);
 
   const getPageIdFromUrl = () => {
     const pathParts = window.location.pathname.split("/");
@@ -144,12 +151,52 @@ const CompanyAffiliations = () => {
   const handleCancelRemove = () => {
     setShowRemoveModal(false);
     setSelectedMember(null);
+    setRemovingId(null);
   };
 
-  const handleConfirmRemove = () => {
-    setShowRemoveModal(false);
-    setSelectedMember(null);
-    fetchCompanyAffiliations();
+  const handleConfirmRemove = async () => {
+    if (!selectedMember) return;
+
+    try {
+      setRemoveLoading(true);
+      setRemovingId(selectedMember.id);
+
+      const token = localStorage.getItem('token');
+      const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000/api';
+
+      const response = await fetch(`${baseUrl}/removeCompanyMembership`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json',
+        },
+        body: JSON.stringify({
+          membership_id: selectedMember.id
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+
+      if (result.status) {
+        // Remove the affiliation from the local state
+        setAffiliations(prev => prev.filter(affiliation => affiliation.id !== selectedMember.id));
+        setShowRemoveModal(false);
+        setSelectedMember(null);
+      } else {
+        throw new Error(result.message || 'Failed to remove membership');
+      }
+    } catch (err) {
+      console.error('Error removing company membership:', err);
+      alert(`Error removing membership: ${err.message}`);
+    } finally {
+      setRemoveLoading(false);
+      setRemovingId(null);
+    }
   };
 
   if (loading) {
@@ -197,6 +244,7 @@ const CompanyAffiliations = () => {
           agency={agency}
           setShowConfLetterPopup={handleViewDetails}
           removeMembership={() => handleRemoveClick(agency)}
+          isRemoving={removingId === agency.id}
         />
       ))}
 
@@ -215,6 +263,7 @@ const CompanyAffiliations = () => {
           onCancel={handleCancelRemove}
           onBlock={handleConfirmRemove}
           name={selectedMember?.company_name}
+          isLoading={removeLoading}
         />
       )}
     </div>

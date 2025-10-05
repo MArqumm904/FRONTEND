@@ -32,15 +32,15 @@ const ViewMembershipModal = ({ onClose, invitation }) => {
   });
   
   // Get base URL from environment variable
-  const baseUrl =  "http://127.0.0.1:8000/storage";
+  const baseUrl =  "http://127.0.0.1:8000/storage/";
   
   // Get document URLs with proper base URL
   const confirmationLetterUrl = invitation.documents && invitation.documents[0]?.confirmation_letter 
-    ? `${baseUrl}/${invitation.documents[0].confirmation_letter}`
+    ? `${baseUrl}${invitation.documents[0].confirmation_letter}`
     : null;
     
   const proofDocumentUrl = invitation.documents && invitation.documents[0]?.proof_document 
-    ? `${baseUrl}/${invitation.documents[0].proof_document}`
+    ? `${baseUrl}${invitation.documents[0].proof_document}`
     : null;
 
   const openPreview = (image, label) => {

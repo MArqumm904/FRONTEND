@@ -59,7 +59,7 @@ const MembersTab = () => {
           {activeTab === "Pending Request"
             ? "Invited Members"
             : activeTab === "Member Request"
-            ? `Member Requestes (${requestsCount})`
+            ? `Member Requests (${requestsCount})`
             : activeTab}
         </h2>
         {activeTab === "My Members" ? (

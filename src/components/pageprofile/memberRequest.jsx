@@ -42,10 +42,10 @@ const MemberCard = ({
   };
 
   const getProfilePhotoUrl = () => {
-    const profilePhoto = request.user?.profile?.profile_photo;
+    var profilePhoto = request.user?.profile?.profile_photo;
 
     if (!profilePhoto) {
-      return DEFAULT_COMPANY_LOGO;
+      profilePhoto = request.pageaffiliation?.page_profile_photo
     }
 
     // If it's already a full URL, return as-is
@@ -75,7 +75,7 @@ const MemberCard = ({
         <div className="flex-1 min-w-0">
           <div className="flex flex-wrap items-center gap-2 mb-1">
             <span className="font-bold text-lg text-black font-sf">
-              {request.company_name}
+              {request.pageaffiliation?.page_name || request.company_name}
             </span>
             <span className="text-xs text-gray-500 font-sf">
               {formatDate(request.start_date)} –{" "}
@@ -153,6 +153,12 @@ const MemberRequest = ({ onRequestsUpdate }) => {
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [rejectingId, setRejectingId] = useState(null);
 
+  // Get page ID from URL
+  const getPageIdFromUrl = () => {
+    const pathParts = window.location.pathname.split("/");
+    return pathParts[pathParts.length - 1];
+  };
+
   // Fetch membership requests from API
   const fetchMembershipRequests = async () => {
     try {
@@ -160,6 +166,7 @@ const MemberRequest = ({ onRequestsUpdate }) => {
       setError(null);
 
       const token = localStorage.getItem("token");
+      const pageId = getPageIdFromUrl();
 
       const response = await fetch(
         `${import.meta.env.VITE_API_BASE_URL}/getUserMemberships`,
@@ -170,6 +177,9 @@ const MemberRequest = ({ onRequestsUpdate }) => {
             Authorization: `Bearer ${token}`,
             Accept: "application/json",
           },
+          body: JSON.stringify({
+            page_id: pageId
+          }),
         }
       );
 
@@ -238,8 +248,7 @@ const MemberRequest = ({ onRequestsUpdate }) => {
             )
           );
         }
-
-        // alert("Membership request rejected successfully");
+        handleRefresh();
         toast.success("Membership request rejected successfully");
       } else {
         throw new Error(data.message || "Failed to reject membership");

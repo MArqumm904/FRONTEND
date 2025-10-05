@@ -16,7 +16,7 @@ const StartGroupChat = ({ isOpen, onClose, onChatCreated }) => {
   const [previewPhoto, setPreviewPhoto] = useState(null);
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
   const STORAGE_BASE_URL =
-    (API_BASE_URL?.replace(/\/?api\/?$/, "") || API_BASE_URL) + "/storage";
+    (API_BASE_URL?.replace(/\/?api\/?$/, "") || API_BASE_URL) + "/public/storage";
   const fileInputRef = useRef(null);
   const inputRef = useRef(null);
 

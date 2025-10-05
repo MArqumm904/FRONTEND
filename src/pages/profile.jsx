@@ -128,9 +128,38 @@ const Profile = () => {
   const [followersDataLoading, setFollowersDataLoading] = useState(false);
   const [followToggleLoading, setFollowToggleLoading] = useState(false);
   const [profileDataLoading, setProfileDataLoading] = useState(true);
+  const [isVerifiedBadge, setIsVerifiedBadge] = useState(false);
+  const [verifiedBadgeLoading, setVerifiedBadgeLoading] = useState(true);
 
   const { id } = useParams();
   const user_id = localStorage.getItem("user_id");
+
+  const checkVerifiedMembershipBadge = async () => {
+    setVerifiedBadgeLoading(true);
+    try {
+      const response = await axios.get(
+        `${import.meta.env.VITE_API_BASE_URL}/checkverifiedMembershipbadge`,
+        {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+        }
+      );
+
+      setIsVerifiedBadge(response.data.is_verified_badge);
+    } catch (error) {
+      console.error("Error checking verified badge:", error);
+      setIsVerifiedBadge(false);
+    } finally {
+      setVerifiedBadgeLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (id) {
+      checkVerifiedMembershipBadge();
+    }
+  }, [id]);
 
   const checkFollowStatus = async () => {
     if (user_id === id) {
@@ -222,7 +251,6 @@ const Profile = () => {
       setFollowToggleLoading(false);
     }
   };
-
 
   const fetchPosts = async () => {
     if (loading || !hasMore) return;
@@ -512,7 +540,7 @@ const Profile = () => {
     }
   };
 
- useEffect(() => {
+  useEffect(() => {
     function handleClickOutside(event) {
       if (
         !event.target.closest(".profile-dropdown-menu") &&
@@ -615,49 +643,44 @@ const Profile = () => {
     fetchData();
   }, [id]);
 
-    const fetchRandomUsers = async () => {
-      try {
-        setSuggestedLoading(true);
-        const response = await axios.post(
-          `${import.meta.env.VITE_API_BASE_URL}/users/getrandomusers`,
-          { limit: 5 },
-          {
-            headers: {
-              Authorization: `Bearer ${localStorage.getItem("token")}`,
-            },
-          }
-        );
+  const fetchRandomUsers = async () => {
+    try {
+      setSuggestedLoading(true);
+      const response = await axios.post(
+        `${import.meta.env.VITE_API_BASE_URL}/users/getrandomusers`,
+        { limit: 5 },
+        {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+        }
+      );
 
-        const processedUsers = response.data.users.map((user) => {
-          let profilePic = "https://randomuser.me/api/portraits/women/44.jpg";
+      const processedUsers = response.data.users.map((user) => {
+        let profilePic = "https://randomuser.me/api/portraits/women/44.jpg";
 
-          if (user.profile?.profile_photo) {
-            const baseUrl = import.meta.env.VITE_API_BASE_URL.replace(
-              "/api",
-              ""
-            );
-            profilePic = user.profile.profile_photo.startsWith("http")
-              ? user.profile.profile_photo
-              : `${baseUrl}/storage/${user.profile.profile_photo}`;
-          }
+        if (user.profile?.profile_photo) {
+          const baseUrl = import.meta.env.VITE_API_BASE_URL.replace("/api", "");
+          profilePic = user.profile.profile_photo.startsWith("http")
+            ? user.profile.profile_photo
+            : `${baseUrl}/storage/${user.profile.profile_photo}`;
+        }
 
-          return {
-            id: user.id,
-            name: user.name,
-            role: user.profile?.headline || "No headline",
-            image: profilePic,
-          };
-        });
+        return {
+          id: user.id,
+          name: user.name,
+          role: user.profile?.headline || "No headline",
+          image: profilePic,
+        };
+      });
 
-        setSuggestedUsers(processedUsers);
-        setSuggestedLoading(false);
-      } catch (err) {
-        setSuggestedError(err.message);
-        setSuggestedLoading(false);
-      }
-    };
-
-
+      setSuggestedUsers(processedUsers);
+      setSuggestedLoading(false);
+    } catch (err) {
+      setSuggestedError(err.message);
+      setSuggestedLoading(false);
+    }
+  };
 
   const handleDropdownToggle = () => {
     if (!showDropdown && iconRef.current) {
@@ -865,16 +888,25 @@ const Profile = () => {
                           <span className="text-3xl font-bold text-black font-sf">
                             {userProfile ? userProfile.name : "Loading..."}
                           </span>
-                          <button
-                            className="flex items-center bg-[#bbf1fc] rounded-full px-4 py-1 focus:outline-none"
-                            onClick={() => setShowBadgesModal(true)}
-                            style={{ cursor: "pointer" }}
-                          >
-                            <Gem className="w-5 h-5 text-[#1797a6] mr-2" />
-                            <span className="text-[#1797a6] font-medium text-base">
-                              Verified Memberships
-                            </span>
-                          </button>
+                          {verifiedBadgeLoading ? (
+                            <div className="flex items-center">
+                              <div className="w-5 h-5 border-2 border-[#1797a6] border-t-transparent rounded-full animate-spin mr-2"></div>
+                              <span className="text-[#1797a6] font-medium text-base">
+                                Checking...
+                              </span>
+                            </div>
+                          ) : isVerifiedBadge ? (
+                            <button
+                              className="flex items-center bg-[#bbf1fc] rounded-full px-4 py-1 focus:outline-none"
+                              onClick={() => setShowBadgesModal(true)}
+                              style={{ cursor: "pointer" }}
+                            >
+                              <Gem className="w-5 h-5 text-[#1797a6] mr-2" />
+                              <span className="text-[#1797a6] font-medium text-base">
+                                Verified Memberships
+                              </span>
+                            </button>
+                          ) : null}
                         </div>
 
                         <div className="flex items-center text-[#636363] mb-2">
