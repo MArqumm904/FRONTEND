@@ -4,10 +4,10 @@ import CreatePost from "./createpost";
 import RightSidebar from "./rightsidebar";
 import SidebarMenu from "./sidebarmenu";
 import Post from "./post";
-import { useState} from "react";
+import { useState } from "react";
 
-export default function Hero() {
-  const [refreshStories,setRefreshStories] = useState(false);
+export default function Hero({ latestPage, latestGroup }) {
+  const [refreshStories, setRefreshStories] = useState(false);
 
   return (
     <div className="min-h-screen bg-gray-100">
@@ -36,7 +36,7 @@ export default function Hero() {
           {/* Right Sidebar - Hidden on mobile */}
           <div className="hidden md:block md:col-span-3 ">
             <div className="sticky top-4 max-h-[calc(100vh-2rem)] overflow-y-auto">
-              <RightSidebar />
+              <RightSidebar latestPage={latestPage} latestGroup={latestGroup} />
             </div>
           </div>
         </div>

@@ -9,6 +9,8 @@ import Saved from "./pages/saved";
 import Groups from "./pages/groups";
 import Pages from "./pages/pages";
 import Browse from "./pages/browse";
+import PostModalPage from "./pages/PostModalPage";
+import PageModalPage from "./pages/PageModalPage";
 import Profile from "./pages/profile";
 import CheckLoginOrNot from "./pages/CheckLoginOrNot";
 import Preloader from "./components/preloader/Preloader";
@@ -26,6 +28,8 @@ function App() {
         <Route path="/register" element={<Register />} />
         <Route path="/preloader" element={<Preloader />} />
         <Route path="/" element={<CheckLoginOrNot><Home /></CheckLoginOrNot>} />
+        <Route path="/post/:postId" element={<PostModalPage />} />
+        <Route path="/page/:pageId" element={<PageModalPage />} />
         <Route path="/friends" element={<CheckLoginOrNot><Friends /></CheckLoginOrNot>} />
         <Route path="/notifications" element={<CheckLoginOrNot><Notifications /></CheckLoginOrNot>} />
         <Route path="/saved" element={<CheckLoginOrNot><Saved /></CheckLoginOrNot>} />

@@ -76,6 +76,7 @@ const PageProfile = () => {
   const [isLiked, setIsLiked] = useState({});
   const [loadingOwner, setLoadingOwner] = useState(false);
   const [owner_id, setOwner_id] = useState("");
+  const [showCopyAlert, setShowCopyAlert] = useState(false);
 
   const location = useLocation();
   const { id } = useParams();
@@ -85,6 +86,14 @@ const PageProfile = () => {
   // const PagesId = 6;
   console.log("PagesId---", PagesId);
   console.log("ownerId---", owner_id);
+
+  const handleCopyPageLink = () => {
+    const pageUrl = window.location.href;
+    navigator.clipboard.writeText(pageUrl).then(() => {
+      setShowCopyAlert(true);
+      setTimeout(() => setShowCopyAlert(false), 2000); // hide after 2s
+    });
+  };
 
   const relatedPages = [
     {
@@ -581,7 +590,7 @@ const PageProfile = () => {
   if (loadingPages) {
     return <Preloader />;
   }
-  
+
   if (loadingOwner || !owner_id) {
     return <Preloader />;
   }
@@ -606,7 +615,7 @@ const PageProfile = () => {
           }}
         />
       )}
-      
+
       {showeditprofilePopup && (
         <EditProfile
           onClose={() => setShoweditprofilePopup(false)}
@@ -916,7 +925,7 @@ const PageProfile = () => {
               <button
                 className="flex items-center w-full px-4 py-2 text-black hover:bg-gray-100"
                 onClick={() => {
-                  setShowLanguageSettings(true);
+                  handleCopyPageLink();
                   setShowDropdown(false);
                 }}
               >
@@ -932,6 +941,15 @@ const PageProfile = () => {
               >
                 <Trash2 className="w-5 h-5 mr-3" /> Delete Page
               </button>
+            </div>
+          )}
+          {showCopyAlert && (
+            <div
+              className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 
+                  bg-[#0017e7] text-white px-6 py-3 rounded-md shadow-lg 
+                  text-lg font-medium animate-fadeIn"
+            >
+              🔗 Page link copied!
             </div>
           )}
 

@@ -23,7 +23,7 @@ import axios from "axios";
 import PrivacySettings from "./profilecomponents/privacy_settings";
 import LanguageSettings from "./profilecomponents/select_language";
 
-export default function NavbarReplica() {
+export default function Navbar({ onLatestDataFetched }) {
   const navigate = useNavigate();
   const [showaddfriendsPopup, setShowaddfriendsPopup] = useState(false);
   const [inputValue, setInputValue] = useState("");
@@ -33,6 +33,8 @@ export default function NavbarReplica() {
   const [userData, setUserData] = useState(null);
   const [showPrivacySettings, setShowPrivacySettings] = useState(false);
   const [showLanguageSettings, setShowLanguageSettings] = useState(false);
+  const [latestPage, setLatestPage] = useState(null);
+  const [latestGroup, setLatestGroup] = useState(null);
 
   const ToProfile = () => {
     navigate(`/profile/${localStorage.getItem("user_id")}`);
@@ -101,10 +103,26 @@ export default function NavbarReplica() {
   useEffect(() => {
     const userId = localStorage.getItem("user_id");
     if (!userId) return;
+
     fetch(`${import.meta.env.VITE_API_BASE_URL}/user/profile/${userId}`)
       .then((res) => res.json())
-      .then((data) => setUserData(data.user))
-      .catch(() => setUserData(null));
+      .then((data) => {
+        setLatestPage(data.latest_page);
+        setLatestGroup(data.latest_group);
+
+        // 👇 Pass both values upward together
+        if (onLatestDataFetched)
+          onLatestDataFetched({
+            latest_page: data.latest_page,
+            latest_group: data.latest_group,
+          });
+      })
+      .catch(() => {
+        setLatestPage(null);
+        setLatestGroup(null);
+        if (onLatestDataFetched)
+          onLatestDataFetched({ latest_page: null, latest_group: null });
+      });
   }, []);
 
   console.log("userData", userData);
@@ -204,7 +222,9 @@ export default function NavbarReplica() {
               >
                 <div className="w-12 h-12 bg-[#e4e4e4] rounded-full flex items-center justify-center cursor-pointer hover:bg-[#e4e4e4] transition-colors overflow-hidden">
                   <img
-                    src={userData ? profileFix(userData.profile.profile_photo) : ''}
+                    src={
+                      userData ? profileFix(userData.profile.profile_photo) : ""
+                    }
                     alt="Profile"
                     className="w-full h-full object-cover rounded-full"
                   />
@@ -244,7 +264,11 @@ export default function NavbarReplica() {
                     >
                       <div className="flex items-center w-full">
                         <img
-                          src={userData ? profileFix(userData.profile.profile_photo) : ''}
+                          src={
+                            userData
+                              ? profileFix(userData.profile.profile_photo)
+                              : ""
+                          }
                           alt="Profile"
                           className="w-12 h-12 rounded-full object-cover mr-3"
                         />

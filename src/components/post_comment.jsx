@@ -28,7 +28,7 @@ const PostComment = ({
   postTime,
   totalReactions,
   userId,
-  userAvatar
+  userAvatar,
 }) => {
   const [newComment, setNewComment] = useState("");
   const [isBookmarked, setIsBookmarked] = useState(null); // null initially
@@ -102,7 +102,11 @@ const PostComment = ({
         const transformedComments = response.data.data.map((comment) => ({
           id: comment.id,
           user: comment.user.name,
-          avatar: `https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=40&h=40&fit=crop&crop=face&round=50`,
+          avatar: comment.user.profile?.profile_photo
+            ? `${import.meta.env.VITE_API_IMAGE_BASE_URL}/${
+                comment.user.profile.profile_photo
+              }`
+            : `https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=40&h=40&fit=crop&crop=face&round=50`,
           text: comment.content,
           time: formatTime(comment.created_at),
           likes: comment.likes_count,
@@ -110,7 +114,11 @@ const PostComment = ({
           replies: comment.replies.map((reply) => ({
             id: reply.id,
             user: reply.user.name,
-            avatar: `https://images.unsplash.com/photo-1494790108755-2616b332c3cd?w=40&h=40&fit=crop&crop=face&round=50`,
+            avatar: reply.user.profile?.profile_photo
+              ? `${import.meta.env.VITE_API_IMAGE_BASE_URL}/${
+                  reply.user.profile.profile_photo
+                }`
+              : `https://images.unsplash.com/photo-1494790108755-2616b332c3cd?w=40&h=40&fit=crop&crop=face&round=50`,
             text: reply.content,
             time: formatTime(reply.created_at),
             likes: reply.likes_count,
@@ -400,7 +408,10 @@ const PostComment = ({
         {/* Header - Fixed */}
         <div className="p-3 flex items-center justify-between border-b border-gray-200 flex-shrink-0">
           <div className="flex items-center space-x-2">
-            <div onClick={() => navigate(`/profile/${userId}`)} className="cursor-pointer w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center">
+            <div
+              onClick={() => navigate(`/profile/${userId}`)}
+              className="cursor-pointer w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center"
+            >
               <img
                 src={userAvatar}
                 className="w-full h-full rounded-full object-cover"
@@ -408,7 +419,10 @@ const PostComment = ({
               />
             </div>
             <div className="flex items-center justify-between ">
-              <div onClick={() => navigate(`/profile/${userId}`)} className="cursor-pointer">
+              <div
+                onClick={() => navigate(`/profile/${userId}`)}
+                className="cursor-pointer"
+              >
                 <h3 className="font-semibold text-sm ms-2 text-gray-900">
                   {userName}
                 </h3>

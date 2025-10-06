@@ -20,28 +20,32 @@ export default function ShareComponent({ onClose, post }) {
   const [searchTerm, setSearchTerm] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [showCopySuccess, setShowCopySuccess] = useState(false);
   const [friends, setFriends] = useState([]);
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
-  const STORAGE_BASE_URL = (API_BASE_URL?.replace(/\/?api\/?$/, '') || API_BASE_URL) + '/storage';
+  const [copyMessageVisible, setCopyMessageVisible] = useState(false);
+
+  const STORAGE_BASE_URL =
+    (API_BASE_URL?.replace(/\/?api\/?$/, "") || API_BASE_URL) + "/storage";
 
   const toAvatarUrl = (path) => {
     if (!path) return null;
-    if (path.startsWith('http://') || path.startsWith('https://')) return path;
+    if (path.startsWith("http://") || path.startsWith("https://")) return path;
     return `${STORAGE_BASE_URL}/${path}`;
   };
 
   useEffect(() => {
     const fetchFriends = async () => {
       try {
-        const token = localStorage.getItem('token');
+        const token = localStorage.getItem("token");
         const res = await axios.get(`${API_BASE_URL}/friends`, {
           headers: token ? { Authorization: `Bearer ${token}` } : {},
-          params: { per_page: 100 }
+          params: { per_page: 100 },
         });
         const list = (res.data?.data || []).map((f) => ({
           id: f.id,
           name: f.name,
-          role: f.subtitle || '',
+          role: f.subtitle || "",
           image: toAvatarUrl(f.profilePic),
         }));
         setFriends(list);
@@ -52,26 +56,80 @@ export default function ShareComponent({ onClose, post }) {
     fetchFriends();
   }, [API_BASE_URL]);
 
+  const handleCopyLink = () => {
+    const numericPostId =
+      post?.id || post?.uniqueId?.split("_")[1] || post?.uniqueId;
+    const shareLink = `${window.location.origin}/post/${numericPostId}`;
+
+    navigator.clipboard.writeText(shareLink);
+
+    // Show "Copied!" message
+    setCopyMessageVisible(true);
+
+    setTimeout(() => {
+      setCopyMessageVisible(false);
+      onClose?.();
+    }, 1500);
+  };
+
   const socialOptions = [
     {
       icon: <Link className="w-6 h-6 text-gray-600" />,
       label: "Copy Link",
+      onClick: handleCopyLink, // Add this
     },
     {
       icon: <img src={Twitter} alt="Twitter" className="w-6 h-6 text-black" />,
       label: "X",
+      onClick: () => {
+        const numericPostId =
+          post?.id || post?.uniqueId?.split("_")[1] || post?.uniqueId;
+        const shareLink = `${window.location.origin}/post/${numericPostId}`;
+        window.open(
+          `https://twitter.com/intent/tweet?url=${encodeURIComponent(
+            shareLink
+          )}`,
+          "_blank"
+        );
+      },
     },
     {
-      icon: <img src={Whatsapp} alt="Twitter" className="w-6 h-6 text-black" />,
+      icon: (
+        <img src={Whatsapp} alt="WhatsApp" className="w-6 h-6 text-black" />
+      ),
       label: "WhatsApp",
+      onClick: () => {
+        const numericPostId =
+          post?.id || post?.uniqueId?.split("_")[1] || post?.uniqueId;
+        const shareLink = `${window.location.origin}/post/${numericPostId}`;
+        window.open(
+          `https://wa.me/?text=${encodeURIComponent(shareLink)}`,
+          "_blank"
+        );
+      },
     },
     {
       icon: <Facebook className="w-6 h-6 text-black" />,
       label: "Facebook",
+      onClick: () => {
+        const numericPostId =
+          post?.id || post?.uniqueId?.split("_")[1] || post?.uniqueId;
+        const shareLink = `${window.location.origin}/post/${numericPostId}`;
+        window.open(
+          `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(
+            shareLink
+          )}`,
+          "_blank"
+        );
+      },
     },
     {
       icon: <Instagram className="w-6 h-6 text-black" />,
       label: "Instagram",
+      onClick: () => {
+        // Instagram doesn't support direct sharing via URL, show message
+        alert("Please share the link manually on Instagram");
+      },
     },
   ];
 
@@ -86,19 +144,23 @@ export default function ShareComponent({ onClose, post }) {
   const handleSend = async () => {
     setIsSending(true);
     try {
-      const token = localStorage.getItem('token');
-      const baseUrl = API_BASE_URL.replace('/api', '');
+      const token = localStorage.getItem("token");
+      const baseUrl = API_BASE_URL.replace("/api", "");
       const payloads = selectedUsers.map((receiverId) => {
         // Determine thumbnail if available
         let thumbnail = null;
-        if (post?.type === 'image' && post?.image) thumbnail = post.image;
-        if (post?.type === 'video' && post?.thumbnail) thumbnail = post.thumbnail;
-        if (thumbnail && !thumbnail.startsWith('http')) thumbnail = `${baseUrl}${thumbnail.startsWith('/storage') ? '' : '/'}${thumbnail}`;
+        if (post?.type === "image" && post?.image) thumbnail = post.image;
+        if (post?.type === "video" && post?.thumbnail)
+          thumbnail = post.thumbnail;
+        if (thumbnail && !thumbnail.startsWith("http"))
+          thumbnail = `${baseUrl}${
+            thumbnail.startsWith("/storage") ? "" : "/"
+          }${thumbnail}`;
 
         return {
           receiver_id: receiverId,
           post_id: post?.id,
-          post_type: post?.type || 'text',
+          post_type: post?.type || "text",
           message: message,
           thumbnail: thumbnail,
         };
@@ -107,21 +169,21 @@ export default function ShareComponent({ onClose, post }) {
       // Fire requests sequentially to keep it simple and reliable
       for (const body of payloads) {
         await fetch(`${API_BASE_URL}/messages/post`, {
-          method: 'POST',
+          method: "POST",
           headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
+            "Content-Type": "application/json",
+            Accept: "application/json",
             Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify(body),
         });
       }
 
-    setShowSuccess(true);
-    setTimeout(() => {
-        setMessage('');
-      setSelectedUsers([]);
-      setShowSuccess(false);
+      setShowSuccess(true);
+      setTimeout(() => {
+        setMessage("");
+        setSelectedUsers([]);
+        setShowSuccess(false);
         onClose?.();
       }, 1200);
     } catch (e) {
@@ -293,23 +355,31 @@ export default function ShareComponent({ onClose, post }) {
             </>
           )}
 
-          {/* Social Share Options - Only show when no user is selected */}
+          {/* Social Share Options */}
           {selectedUsers.length === 0 && (
-            <div className="p-8 h-full flex items-center">
-              <div className="flex justify-between items-center w-full ">
+            <div className="p-8 h-full flex items-center relative">
+              <div className="flex justify-between items-center w-full">
                 {socialOptions.map((option, index) => (
-                  <button
-                    key={index}
-                    className="flex flex-col items-center space-y-1 p-2 hover:bg-gray-50 rounded-lg transition-colors"
-                  >
-                    <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center">
-                      {option.icon}
-                    </div>
+                  <div key={index} className="relative">
+                    <button
+                      onClick={option.onClick}
+                      className="flex flex-col items-center space-y-1 p-2 hover:bg-gray-50 rounded-lg transition-colors"
+                    >
+                      <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center">
+                        {option.icon}
+                      </div>
+                      <span className="text-xs text-gray-600">
+                        {option.label}
+                      </span>
+                    </button>
 
-                    <span className="text-xs text-gray-600">
-                      {option.label}
-                    </span>
-                  </button>
+                    {/* Copied message */}
+                    {option.label === "Copy Link" && copyMessageVisible && (
+                      <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-[#0017e7] text-white text-sm font-semibold px-3 py-1 rounded-md shadow-lg">
+                        Copied!
+                      </div>
+                    )}
+                  </div>
                 ))}
               </div>
             </div>
