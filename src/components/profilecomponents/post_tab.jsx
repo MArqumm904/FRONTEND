@@ -19,6 +19,7 @@ import PostCreate from "../profilecomponents/post_edit";
 import PostComment from "../post_comment";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import { Heart } from "lucide-react";
 import axios from "axios";
 
 const PostTab = ({
@@ -29,7 +30,7 @@ const PostTab = ({
   fetchPosts,
   loading = false,
   hasMore = true,
-  setCombinedPosts, 
+  setCombinedPosts,
 }) => {
   const [showMenu, setShowMenu] = useState({});
   const [showFullText, setShowFullText] = useState({});
@@ -44,12 +45,24 @@ const PostTab = ({
   const [pollVotes, setPollVotes] = useState({});
   const [deletingPostId, setDeletingPostId] = useState(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(null);
-  
+  const [showReactions, setShowReactions] = useState({});
+  const [selectedReaction, setSelectedReaction] = useState({});
+  const [hoverTimeout, setHoverTimeout] = useState({});
   const [localPosts, setLocalPosts] = useState([]);
 
   useEffect(() => {
     setLocalPosts(getPostsToDisplay());
   }, [combinedPosts, text_posts_data, image_posts_data, video_posts_data]);
+
+  const reactions = [
+    { name: "like", icon: "👍", color: "text-[#0017e7]", component: ThumbsUp },
+    { name: "love", icon: "❤️", color: "text-red-500", component: Heart },
+    { name: "care", icon: "🤗", color: "text-yellow-500" },
+    { name: "haha", icon: "😂", color: "text-yellow-500" },
+    { name: "wow", icon: "😮", color: "text-yellow-500" },
+    { name: "sad", icon: "😢", color: "text-yellow-500" },
+    { name: "angry", icon: "😠", color: "text-orange-500" },
+  ];
 
   const getPostsToDisplay = () => {
     if (combinedPosts && combinedPosts.length > 0) {
@@ -124,7 +137,7 @@ const PostTab = ({
     const actualPostId = postId.includes("_") ? postId.split("_")[1] : postId;
 
     setShowMenu((prev) => ({ ...prev, [postId]: false }));
-    
+
     setDeletingPostId(postId);
 
     try {
@@ -138,10 +151,14 @@ const PostTab = ({
       );
 
       if (response.data.success) {
-        setLocalPosts(prev => prev.filter(post => post.uniqueId !== postId));
-        
+        setLocalPosts((prev) =>
+          prev.filter((post) => post.uniqueId !== postId)
+        );
+
         if (setCombinedPosts) {
-          setCombinedPosts(prev => prev.filter(post => post.uniqueId !== postId));
+          setCombinedPosts((prev) =>
+            prev.filter((post) => post.uniqueId !== postId)
+          );
         }
 
         toast.success("Post deleted successfully!", {
@@ -184,13 +201,140 @@ const PostTab = ({
     }));
   };
 
-  const handleLike = (postId) => {
-    setIsLiked((prev) => ({ ...prev, [postId]: !prev[postId] }));
-    setShowAnimation((prev) => ({ ...prev, [postId]: true }));
-    setTimeout(
-      () => setShowAnimation((prev) => ({ ...prev, [postId]: false })),
-      600
-    );
+  const handleLike = async (postId) => {
+    const currentPost = postsToDisplay.find((p) => p.uniqueId === postId);
+    const reactionType = currentPost?.current_user_reaction || "like";
+    const actualPostId = postId.includes("_") ? postId.split("_")[1] : postId;
+
+    try {
+      const response = await axios.post(
+        `${import.meta.env.VITE_API_BASE_URL}/postsreactions`,
+        {
+          post_id: actualPostId,
+          reaction_type: reactionType,
+        },
+        {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+        }
+      );
+
+      // Update local state
+      setLocalPosts((prev) =>
+        prev.map((post) => {
+          if (post.uniqueId === postId) {
+            return {
+              ...post,
+              current_user_reaction: currentPost?.current_user_reaction
+                ? null
+                : "like",
+              total_reactions: currentPost?.current_user_reaction
+                ? (post.total_reactions || 1) - 1
+                : (post.total_reactions || 0) + 1,
+              reactions_count: {
+                ...post.reactions_count,
+                like: currentPost?.current_user_reaction
+                  ? Math.max(0, (post.reactions_count?.like || 1) - 1)
+                  : (post.reactions_count?.like || 0) + 1,
+              },
+            };
+          }
+          return post;
+        })
+      );
+
+      setShowAnimation((prev) => ({ ...prev, [postId]: true }));
+      setTimeout(
+        () => setShowAnimation((prev) => ({ ...prev, [postId]: false })),
+        600
+      );
+    } catch (error) {
+      console.error("Error sending reaction:", error);
+    }
+  };
+
+  const handleReactionSelect = async (postId, reactionName) => {
+    const currentPost = postsToDisplay.find((p) => p.uniqueId === postId);
+    const actualPostId = postId.includes("_") ? postId.split("_")[1] : postId;
+
+    try {
+      await axios.post(
+        `${import.meta.env.VITE_API_BASE_URL}/postsreactions`,
+        {
+          post_id: actualPostId,
+          reaction_type: reactionName,
+        },
+        {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+        }
+      );
+
+      setLocalPosts((prev) =>
+        prev.map((post) => {
+          if (post.uniqueId === postId) {
+            const oldReaction = post.current_user_reaction;
+            return {
+              ...post,
+              current_user_reaction: reactionName,
+              total_reactions: oldReaction
+                ? post.total_reactions
+                : (post.total_reactions || 0) + 1,
+              reactions_count: {
+                ...post.reactions_count,
+                ...(oldReaction && {
+                  [oldReaction]: Math.max(
+                    0,
+                    (post.reactions_count?.[oldReaction] || 1) - 1
+                  ),
+                }),
+                [reactionName]: (post.reactions_count?.[reactionName] || 0) + 1,
+              },
+            };
+          }
+          return post;
+        })
+      );
+
+      setShowReactions((prev) => ({ ...prev, [postId]: false }));
+      setShowAnimation((prev) => ({ ...prev, [postId]: true }));
+      setTimeout(
+        () => setShowAnimation((prev) => ({ ...prev, [postId]: false })),
+        600
+      );
+    } catch (error) {
+      console.error("Error sending reaction:", error);
+    }
+  };
+
+  const handleLikeHover = (postId) => {
+    const timeout = setTimeout(() => {
+      setShowReactions((prev) => ({ ...prev, [postId]: true }));
+    }, 500);
+    setHoverTimeout((prev) => ({ ...prev, [postId]: timeout }));
+  };
+
+  const handleLikeLeave = (postId) => {
+    if (hoverTimeout[postId]) {
+      clearTimeout(hoverTimeout[postId]);
+    }
+    setTimeout(() => {
+      setShowReactions((prev) => ({ ...prev, [postId]: false }));
+    }, 3500);
+  };
+
+  const handleReactionsHover = (postId) => {
+    setShowReactions((prev) => ({ ...prev, [postId]: true }));
+  };
+
+  const handleReactionsLeave = (postId) => {
+    setTimeout(() => {
+      setShowReactions((prev) => ({ ...prev, [postId]: false }));
+    }, 3500);
   };
 
   const handleEditPost = (postId) => {
@@ -486,6 +630,7 @@ const PostTab = ({
           {/* Left Side - Post Section (7 cols) */}
           <div className="col-span-12 lg:col-span-7 w-full">
             {postsToDisplay.map((post) => {
+              console.log("Post Data:", post);
               const userInfo = getUserInfo(post);
               const isDeleting = deletingPostId === post.uniqueId;
 
@@ -493,7 +638,7 @@ const PostTab = ({
                 <div
                   key={post.uniqueId}
                   className={`bg-white rounded-lg shadow-lg border border-[#6974b1] mb-4 w-full transition-all duration-300 ${
-                    isDeleting ? 'opacity-50 pointer-events-none scale-95' : ''
+                    isDeleting ? "opacity-50 pointer-events-none scale-95" : ""
                   }`}
                 >
                   {/* Deleting overlay */}
@@ -648,17 +793,62 @@ const PostTab = ({
                     <div className="flex items-center justify-between">
                       {/* Left side - Reaction icons and count */}
                       <div className="flex items-center space-x-2 ms-1">
-                        <div className="flex items-center -space-x-2">
-                          <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center border-2 border-white z-10">
-                            <ThumbsUp className="w-4 h-4 text-white fill-white" />
-                          </div>
-                          <div className="w-8 h-8 bg-red-500 rounded-full flex items-center justify-center border-2 border-white">
-                            <span className="text-white text-lg">❤️</span>
-                          </div>
-                        </div>
-                        <span className="text-sm font-medium text-gray-700">
-                          {post.likes || 0} Likes
-                        </span>
+                        {post.total_reactions > 0 && (
+                          <>
+                            <div className="flex items-center -space-x-2">
+                              {/* Show reaction icons based on what reactions exist */}
+                              {post.reactions_count?.like > 0 && (
+                                <div className="w-8 h-8 bg-[#0017e7] rounded-full flex items-center justify-center border-2 border-white z-20">
+                                  <ThumbsUp className="w-4 h-4 text-white fill-white" />
+                                </div>
+                              )}
+                              {post.reactions_count?.love > 0 && (
+                                <div className="w-8 h-8 bg-red-500 rounded-full flex items-center justify-center border-2 border-white z-10">
+                                  <span className="text-base">❤️</span>
+                                </div>
+                              )}
+                              {post.reactions_count?.haha > 0 && (
+                                <div className="w-8 h-8 bg-yellow-500 rounded-full flex items-center justify-center border-2 border-white z-10">
+                                  <span className="text-base">😂</span>
+                                </div>
+                              )}
+                              {post.reactions_count?.wow > 0 && (
+                                <div className="w-8 h-8 bg-orange-500 rounded-full flex items-center justify-center border-2 border-white z-10">
+                                  <span className="text-base">😮</span>
+                                </div>
+                              )}
+                              {post.reactions_count?.sad > 0 && (
+                                <div className="w-8 h-8 bg-gray-500 rounded-full flex items-center justify-center border-2 border-white z-10">
+                                  <span className="text-base">😢</span>
+                                </div>
+                              )}
+                              {post.reactions_count?.angry > 0 && (
+                                <div className="w-8 h-8 bg-red-600 rounded-full flex items-center justify-center border-2 border-white z-10">
+                                  <span className="text-base">😠</span>
+                                </div>
+                              )}
+                              {post.reactions_count?.care > 0 && (
+                                <div className="w-8 h-8 bg-yellow-400 rounded-full flex items-center justify-center border-2 border-white z-10">
+                                  <span className="text-base">🤗</span>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Show reaction text */}
+                            <span className="text-sm font-medium text-gray-700">
+                              {post.current_user_reaction &&
+                              post.total_reactions > 1
+                                ? `You and ${post.total_reactions - 1} others`
+                                : post.current_user_reaction
+                                ? "You"
+                                : `${post.total_reactions} ${
+                                    post.total_reactions === 1
+                                      ? "reaction"
+                                      : "reactions"
+                                  }`}
+                            </span>
+                          </>
+                        )}
                       </div>
 
                       {/* Right side - Comments and views */}
@@ -673,42 +863,269 @@ const PostTab = ({
                   {/* Action Buttons */}
                   <div className="border-t border-gray-200 px-9 py-5">
                     <div className="flex justify-between">
-                      <button
-                        onClick={() => handleLike(post.uniqueId)}
-                        className={`flex items-center space-x-2 transition-colors disabled:opacity-50 ${
-                          isLiked[post.uniqueId]
-                            ? "text-blue-500"
-                            : "text-gray-600 hover:text-blue-500"
-                        }`}
-                        disabled={isDeleting}
-                      >
-                        <div className="relative">
-                          <ThumbsUp
-                            className={`w-5 h-5 transition-all duration-300 ${
-                              showAnimation[post.uniqueId]
-                                ? "animate-bounce"
-                                : ""
-                            }`}
-                            fill={
-                              isLiked[post.uniqueId] ? "currentColor" : "none"
-                            }
-                          />
-
-                          {/* Animation effect */}
-                          {showAnimation[post.uniqueId] && (
-                            <div className="absolute inset-0 pointer-events-none">
-                              <div className="absolute -top-1 left-0 animate-ping opacity-75">
+                      {/* Like Button with Reactions Panel */}
+                      <div className="relative">
+                        <button
+                          onClick={() => handleLike(post.uniqueId)}
+                          onMouseEnter={() => handleLikeHover(post.uniqueId)}
+                          onMouseLeave={() => handleLikeLeave(post.uniqueId)}
+                          className={`flex items-center space-x-2 transition-colors disabled:opacity-50 ${
+                            post.current_user_reaction
+                              ? reactions.find(
+                                  (r) => r.name === post.current_user_reaction
+                                )?.color || "text-[#0017e7]"
+                              : "text-gray-600 hover:text-[#0017e7]"
+                          }`}
+                          disabled={isDeleting}
+                        >
+                          <div className="relative">
+                            {/* Show current user's reaction or default like */}
+                            {post.current_user_reaction ? (
+                              post.current_user_reaction === "like" ? (
                                 <ThumbsUp
-                                  className="w-5 h-5 text-blue-500"
+                                  className={`w-5 h-5 transition-all duration-300 ${
+                                    showAnimation[post.uniqueId]
+                                      ? "animate-bounce"
+                                      : ""
+                                  }`}
                                   fill="currentColor"
                                 />
-                              </div>
-                            </div>
-                          )}
-                        </div>
+                              ) : post.current_user_reaction === "love" ? (
+                                <Heart
+                                  className={`w-5 h-5 transition-all duration-300 ${
+                                    showAnimation[post.uniqueId]
+                                      ? "animate-bounce"
+                                      : ""
+                                  }`}
+                                  fill="currentColor"
+                                />
+                              ) : (
+                                <span
+                                  className={`text-xl transition-all duration-300 ${
+                                    showAnimation[post.uniqueId]
+                                      ? "animate-bounce"
+                                      : ""
+                                  }`}
+                                >
+                                  {
+                                    reactions.find(
+                                      (r) =>
+                                        r.name === post.current_user_reaction
+                                    )?.icon
+                                  }
+                                </span>
+                              )
+                            ) : (
+                              <ThumbsUp
+                                className={`w-5 h-5 transition-all duration-300 ${
+                                  showAnimation[post.uniqueId]
+                                    ? "animate-bounce"
+                                    : ""
+                                }`}
+                                fill="none"
+                              />
+                            )}
 
-                        <span className="text-sm font-medium">Like</span>
-                      </button>
+                            {showAnimation[post.uniqueId] && (
+                              <div className="absolute inset-0 pointer-events-none">
+                                <div className="absolute -top-1 left-0 animate-ping opacity-75">
+                                  {post.current_user_reaction ? (
+                                    reactions.find(
+                                      (r) =>
+                                        r.name === post.current_user_reaction
+                                    )?.icon
+                                  ) : (
+                                    <ThumbsUp className="w-5 h-5" />
+                                  )}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+
+                          <span className="text-sm font-medium">
+                            {post.current_user_reaction
+                              ? post.current_user_reaction
+                                  .charAt(0)
+                                  .toUpperCase() +
+                                post.current_user_reaction.slice(1)
+                              : "Like"}
+                          </span>
+                        </button>
+
+                        {/* Reactions Panel */}
+                        {showReactions[post.uniqueId] && (
+                          <div
+                            className="absolute bottom-full left-0 mb-2 bg-white border border-gray-200 rounded-full shadow-lg p-2 flex space-x-2 z-50 animate-fadeInUp"
+                            onMouseEnter={() =>
+                              handleReactionsHover(post.uniqueId)
+                            }
+                            onMouseLeave={() =>
+                              handleReactionsLeave(post.uniqueId)
+                            }
+                            style={{
+                              animation:
+                                "slideUpBounce 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55)",
+                            }}
+                          >
+                            {reactions.map((reaction, index) => (
+                              <button
+                                key={reaction.name}
+                                onClick={() =>
+                                  handleReactionSelect(
+                                    post.uniqueId,
+                                    reaction.name
+                                  )
+                                }
+                                className="w-12 h-12 rounded-full flex items-center justify-center hover:scale-125 transform transition-all duration-200 hover:bg-gray-100 animated-reaction"
+                                title={
+                                  reaction.name.charAt(0).toUpperCase() +
+                                  reaction.name.slice(1)
+                                }
+                                style={{
+                                  animationDelay: `${index * 0.05}s`,
+                                  animation: `bounceIn 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55) ${
+                                    index * 0.05
+                                  }s both`,
+                                }}
+                                onMouseEnter={(e) => {
+                                  e.currentTarget.style.animation =
+                                    "wiggle 0.5s ease-in-out infinite";
+                                }}
+                                onMouseLeave={(e) => {
+                                  e.currentTarget.style.animation = "";
+                                }}
+                              >
+                                {reaction.name === "like" ? (
+                                  <ThumbsUp
+                                    className="w-6 h-6 text-[#0017e7] animate-pulse-subtle"
+                                    fill="currentColor"
+                                  />
+                                ) : reaction.name === "love" ? (
+                                  <div className="relative">
+                                    <Heart
+                                      className="w-6 h-6 text-red-500 animate-heartbeat"
+                                      fill="currentColor"
+                                    />
+                                    <div className="absolute inset-0 animate-ping opacity-25">
+                                      <Heart
+                                        className="w-6 h-6 text-red-500"
+                                        fill="currentColor"
+                                      />
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <span
+                                    className="text-2xl animate-bounce-subtle"
+                                    style={{
+                                      filter:
+                                        "drop-shadow(0 2px 4px rgba(0,0,0,0.1))",
+                                    }}
+                                  >
+                                    {reaction.icon}
+                                  </span>
+                                )}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Add CSS Animations */}
+                        <style jsx>{`
+                          @keyframes slideUpBounce {
+                            0% {
+                              opacity: 0;
+                              transform: translateY(20px) scale(0.8);
+                            }
+                            50% {
+                              transform: translateY(-5px) scale(1.05);
+                            }
+                            100% {
+                              opacity: 1;
+                              transform: translateY(0) scale(1);
+                            }
+                          }
+
+                          @keyframes bounceIn {
+                            0% {
+                              opacity: 0;
+                              transform: scale(0.3) translateY(20px);
+                            }
+                            50% {
+                              opacity: 1;
+                              transform: scale(1.1) translateY(-10px);
+                            }
+                            70% {
+                              transform: scale(0.9) translateY(0);
+                            }
+                            100% {
+                              opacity: 1;
+                              transform: scale(1) translateY(0);
+                            }
+                          }
+
+                          @keyframes wiggle {
+                            0%,
+                            100% {
+                              transform: rotate(0deg) scale(1);
+                            }
+                            25% {
+                              transform: rotate(-10deg) scale(1.1);
+                            }
+                            75% {
+                              transform: rotate(10deg) scale(1.1);
+                            }
+                          }
+
+                          @keyframes heartbeat {
+                            0%,
+                            100% {
+                              transform: scale(1);
+                            }
+                            50% {
+                              transform: scale(1.2);
+                            }
+                          }
+
+                          @keyframes bounce-subtle {
+                            0%,
+                            100% {
+                              transform: translateY(0);
+                            }
+                            50% {
+                              transform: translateY(-2px);
+                            }
+                          }
+
+                          @keyframes pulse-subtle {
+                            0%,
+                            100% {
+                              opacity: 1;
+                            }
+                            50% {
+                              opacity: 0.8;
+                            }
+                          }
+
+                          .animate-heartbeat {
+                            animation: heartbeat 1.5s ease-in-out infinite;
+                          }
+
+                          .animate-bounce-subtle {
+                            animation: bounce-subtle 2s ease-in-out infinite;
+                          }
+
+                          .animate-pulse-subtle {
+                            animation: pulse-subtle 2s ease-in-out infinite;
+                          }
+
+                          .animated-reaction:hover {
+                            transform: scale(1.3) !important;
+                            transition: all 0.2s
+                              cubic-bezier(0.68, -0.55, 0.265, 1.55) !important;
+                          }
+                        `}</style>
+                      </div>
+
                       <button
                         onClick={() =>
                           setShowCommentPopup((prev) => ({
@@ -716,7 +1133,7 @@ const PostTab = ({
                             [post.uniqueId]: true,
                           }))
                         }
-                        className="flex items-center space-x-2 text-gray-600 hover:text-blue-500 transition-colors disabled:opacity-50"
+                        className="flex items-center space-x-2 text-gray-600 hover:text-[#0017e7] transition-colors disabled:opacity-50"
                         disabled={isDeleting}
                       >
                         <MessageCircle className="w-5 h-5" />
@@ -725,7 +1142,7 @@ const PostTab = ({
 
                       <button
                         onClick={() => setShowSharePopup(true)}
-                        className="flex items-center space-x-2 text-gray-600 hover:text-blue-500 transition-colors disabled:opacity-50"
+                        className="flex items-center space-x-2 text-gray-600 hover:text-[#0017e7] transition-colors disabled:opacity-50"
                         disabled={isDeleting}
                       >
                         <Forward className="w-5 h-5" />

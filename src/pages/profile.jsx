@@ -315,9 +315,13 @@ const Profile = () => {
         content: post.content,
         timestamp: post.created_at,
         likes: 0,
-        comments: 0,
+        comments: post.comments_count,
         user: post.user,
         uniqueId: `text_${post.id}`,
+        total_reactions: post.total_reactions || 0,
+        reactions_count: post.reactions_count || {},
+        current_user_reaction: post.current_user_reaction || null,
+        views: post.views || 0,
       });
     });
 
@@ -335,9 +339,13 @@ const Profile = () => {
         image: imageUrl,
         timestamp: post.created_at,
         likes: 0,
-        comments: 0,
+        comments: post.comments_count,
         user: post.user,
         uniqueId: `image_${post.id}`,
+        total_reactions: post.total_reactions || 0,
+        reactions_count: post.reactions_count || {},
+        current_user_reaction: post.current_user_reaction || null,
+        views: post.views || 0,
       });
     });
 
@@ -356,9 +364,14 @@ const Profile = () => {
         thumbnail: PostImage,
         timestamp: post.created_at,
         likes: 0,
-        comments: 0,
+        comments: post.comments_count,
         user: post.user,
         uniqueId: `video_${post.id}`,
+        // ✅ Add these lines
+        total_reactions: post.total_reactions || 0,
+        reactions_count: post.reactions_count || {},
+        current_user_reaction: post.current_user_reaction || null,
+        views: post.views || 0,
       });
     });
 
@@ -390,12 +403,17 @@ const Profile = () => {
         },
         timestamp: post.created_at,
         likes: 0,
-        comments: 0,
+        comments: post.comments_count,
         user: post.user,
         profile_photo: profilePhotoUrl,
         page: post.page,
         uniqueId: `poll_${post.id}`,
-        is_current_user: post.is_current_user, // 🆕 ADD THIS LINE
+        is_current_user: post.is_current_user,
+        // ✅ Add these lines
+        total_reactions: post.total_reactions || 0,
+        reactions_count: post.reactions_count || {},
+        current_user_reaction: post.current_user_reaction || null,
+        views: post.views || 0, // 🆕 ADD THIS LINE
       });
     });
 
