@@ -40,6 +40,7 @@ import Reel from "./Reel";
 import Page from "./Page";
 import Group from "./Group";
 import { toast, ToastContainer } from "react-toastify";
+import { useNavigate } from "react-router-dom";
 
 export default function ChatArea({
   chat,
@@ -100,6 +101,7 @@ export default function ChatArea({
   const [currentlyPlayingVoice, setCurrentlyPlayingVoice] = useState(null);
   const [isClearingChat, setIsClearingChat] = useState(false);
   const voiceAudioRefs = useRef({});
+  const navigate = useNavigate();
 
   useEffect(() => {
     return () => {
@@ -125,7 +127,7 @@ export default function ChatArea({
   };
   const toggleVoicePlay = (msg) => {
     const audio = voiceAudioRefs.current[msg.id];
-    if (!audio || !audio.src) return; 
+    if (!audio || !audio.src) return;
 
     if (currentlyPlayingVoice === msg.id) {
       audio.pause();
@@ -815,7 +817,7 @@ export default function ChatArea({
           ? new Date(Number(payload.timestamp) * 1000)
           : new Date(),
         // Image specific fields
-       image_url: payload?.image_url || null,
+        image_url: payload?.image_url || null,
         // image_url: payload?.image_url || null,
         media_url: payload?.media_url || null,
 
@@ -1020,7 +1022,10 @@ export default function ChatArea({
             {chat.name}
           </h3>
           <p className="text-gray-600 mb-4">102 Likes | 9 Posts</p>
-          <button className="bg-[#0017E7] hover:bg-blue-700 text-white font-semibold px-6 py-2 rounded-lg transition-colors">
+          <button
+            onClick={() => navigate(`/profile/${chat.id}`)}
+            className="bg-[#0017E7] hover:bg-blue-700 text-white font-semibold px-6 py-2 rounded-lg transition-colors"
+          >
             View Profile
           </button>
           <p className="md:hidden text-gray-600 mt-12">Wed 9:41 PM</p>

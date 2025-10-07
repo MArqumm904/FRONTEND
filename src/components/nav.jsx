@@ -107,6 +107,7 @@ export default function Navbar({ onLatestDataFetched }) {
     fetch(`${import.meta.env.VITE_API_BASE_URL}/user/profile/${userId}`)
       .then((res) => res.json())
       .then((data) => {
+        setUserData(data);
         setLatestPage(data.latest_page);
         setLatestGroup(data.latest_group);
 
@@ -274,7 +275,7 @@ export default function Navbar({ onLatestDataFetched }) {
                         />
                         <div>
                           <div className="font-bold text-[17px] leading-tight text-[#222]">
-                            {userData && userData.name}
+                            {userData.user.name}
                           </div>
                           <div className="text-gray-500 text-xs flex items-center gap-1 mt-0.5">
                             <span>UI/UX Designer</span>

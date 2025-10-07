@@ -1,7 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import axios from "axios";
-import Preloader from "./preloader/Preloader";
+import ProfilePreloader from "./preloader/ProfileCardSkeleton";
 
 const ProfileCard = () => {
   const [userProfile, setUserProfile] = useState(null);
@@ -115,7 +115,7 @@ const ProfileCard = () => {
   }, []);
 
   if (loading) {
-    return <Preloader />;
+    return <div><ProfilePreloader /></div>;
   }
 
   if (error) {

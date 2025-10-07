@@ -722,7 +722,7 @@ const Profile = () => {
 
   return (
     <>
-      {preloading && <Preloader />}
+      {preloading && <div className="p-6"><h1>hey</h1></div>}
       {showCreatePostModel && (
         <CreatePost
           onClose={() => setShowCreatePostModel(false)}

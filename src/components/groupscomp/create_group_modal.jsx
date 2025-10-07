@@ -109,7 +109,7 @@ const CreateGroupModal = ({ isOpen, onClose }) => {
       );
 
       // 🔄 Navigate with state
-      navigate("/group_main_home", { state: { groupId: response.data.id } });
+      navigate(`/group_main_home/${response.data.id}`, { state: { groupId: response.data.id } });
       onClose();
     } catch (error) {
       let apiMsg =
